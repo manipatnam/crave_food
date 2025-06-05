@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "173757499776",
+    "project_id": "crave-food-dev-060625",
+    "storage_bucket": "crave-food-dev-060625.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:173757499776:android:f54347e4111c8072b1d965",
+        "android_client_info": {
+          "package_name": "com.example.crave_food"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCke-7Rbt1xuahYeXftvOnT5tjE8vp70Eg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
