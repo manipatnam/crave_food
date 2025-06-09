@@ -33,6 +33,8 @@ class AuthService {
     required String password,
   }) async {
     try {
+      print("🔐 Firebase: Attempting sign in...");
+      
       final UserCredential result = await _firebaseAuth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password,
@@ -40,15 +42,20 @@ class AuthService {
 
       final User? user = result.user;
       if (user != null) {
+        print("✅ Firebase: Sign in successful");
         // Update last login time in Firestore
         await _updateUserLoginTime(user.uid);
         return UserModel.fromFirebaseUser(user);
       }
+      
+      print("❌ Firebase: Sign in failed - no user returned");
       return null;
     } on FirebaseAuthException catch (e) {
+      print("❌ Firebase Auth Exception: ${e.code} - ${e.message}");
       throw _handleAuthException(e);
     } catch (e) {
-      throw 'An unexpected error occurred. Please try again.';
+      print("❌ Firebase: Unexpected error during sign in: $e");
+      throw 'An unexpected error occurred during sign in. Please try again.';
     }
   }
 
@@ -59,6 +66,8 @@ class AuthService {
     String? displayName,
   }) async {
     try {
+      print("📝 Firebase: Attempting registration...");
+      
       final UserCredential result = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
@@ -66,22 +75,48 @@ class AuthService {
 
       final User? user = result.user;
       if (user != null) {
+        print("✅ Firebase: Registration successful for ${user.email}");
+        
         // Update display name if provided
         if (displayName != null && displayName.isNotEmpty) {
-          await user.updateDisplayName(displayName);
+          try {
+            await user.updateDisplayName(displayName);
+            print("✅ Display name updated: $displayName");
+          } catch (e) {
+            print("⚠️ Display name update failed: $e");
+            // Continue anyway - this isn't critical
+          }
         }
 
         // Create user document in Firestore
         final userModel = UserModel.fromFirebaseUser(user);
-        await _createUserDocument(userModel);
+        try {
+          await _createUserDocument(userModel);
+          print("✅ User document created in Firestore");
+        } catch (e) {
+          print("⚠️ Firestore document creation failed: $e");
+          // Continue anyway - auth still works without Firestore doc
+        }
 
         return userModel;
+      } else {
+        print("❌ Firebase: Registration failed - no user returned");
+        return null;
       }
-      return null;
     } on FirebaseAuthException catch (e) {
+      print("❌ Firebase Auth Exception during registration: ${e.code} - ${e.message}");
       throw _handleAuthException(e);
     } catch (e) {
-      throw 'An unexpected error occurred. Please try again.';
+      print("❌ Firebase: Unexpected error during registration: $e");
+      
+      // Check if user was actually created despite the error
+      final currentUser = _firebaseAuth.currentUser;
+      if (currentUser != null && currentUser.email == email.trim()) {
+        print("✅ User was created despite error - returning success");
+        return UserModel.fromFirebaseUser(currentUser);
+      }
+      
+      throw 'Registration encountered an error, but may have succeeded. Please try signing in.';
     }
   }
 
@@ -89,7 +124,9 @@ class AuthService {
   Future<void> signOut() async {
     try {
       await _firebaseAuth.signOut();
+      print("✅ Firebase: Sign out successful");
     } catch (e) {
+      print("❌ Firebase: Sign out error: $e");
       throw 'Error signing out. Please try again.';
     }
   }
@@ -98,6 +135,7 @@ class AuthService {
   Future<void> resetPassword({required String email}) async {
     try {
       await _firebaseAuth.sendPasswordResetEmail(email: email.trim());
+      print("✅ Password reset email sent to: $email");
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     } catch (e) {
@@ -111,6 +149,7 @@ class AuthService {
       final user = currentUser;
       if (user != null && !user.emailVerified) {
         await user.sendEmailVerification();
+        print("✅ Email verification sent");
       }
     } catch (e) {
       throw 'Error sending verification email. Please try again.';
@@ -131,6 +170,7 @@ class AuthService {
       await _firestore.collection('users').doc(userModel.uid).set(userModel.toMap());
     } catch (e) {
       print('Error creating user document: $e');
+      rethrow; // Let caller handle this
     }
   }
 
@@ -142,11 +182,14 @@ class AuthService {
       });
     } catch (e) {
       print('Error updating login time: $e');
+      // Don't rethrow - this is not critical
     }
   }
 
   // Handle Firebase Auth exceptions
   String _handleAuthException(FirebaseAuthException e) {
+    print("🔍 Handling Firebase Auth Exception: ${e.code}");
+    
     switch (e.code) {
       case 'user-not-found':
         return 'No user found with this email address.';
@@ -166,6 +209,8 @@ class AuthService {
         return 'Sign-in method is not enabled. Please contact support.';
       case 'invalid-credential':
         return 'Invalid credentials. Please check your email and password.';
+      case 'network-request-failed':
+        return 'Network error. Please check your connection and try again.';
       default:
         return e.message ?? 'An error occurred. Please try again.';
     }

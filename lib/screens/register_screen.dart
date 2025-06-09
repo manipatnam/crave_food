@@ -41,28 +41,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
         return;
       }
 
+      print("🔄 Starting registration process...");
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       
       final success = await authProvider.registerWithEmailAndPassword(
-        email: _emailController.text,
+        email: _emailController.text.trim(),
         password: _passwordController.text,
-        displayName: _nameController.text,
+        displayName: _nameController.text.trim(),
       );
 
+      print("📊 Registration result: $success");
+
       if (success && mounted) {
-        // Show success message and navigate back
+        print("✅ Registration successful - user should be authenticated");
+        
+        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Account created successfully!'),
+            content: Text('Account created successfully! Welcome to Crave Food!'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
           ),
         );
-        Navigator.pop(context);
+
+        // The AuthWrapper will automatically handle navigation based on auth state
+        // But let's add a small delay to ensure state is updated
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Pop back to login screen - AuthWrapper will detect authentication and navigate to home
+        if (mounted) {
+          Navigator.pop(context);
+        }
+        
       } else if (!success && mounted) {
+        print("❌ Registration failed: ${authProvider.errorMessage}");
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(authProvider.errorMessage ?? 'Registration failed'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -190,9 +207,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     }
                     if (value.length < 6) {
                       return 'Password must be at least 6 characters';
-                    }
-                    if (!RegExp(r'^(?=.*[a-zA-Z])(?=.*\d)').hasMatch(value)) {
-                      return 'Password must contain both letters and numbers';
                     }
                     return null;
                   },

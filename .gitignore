@@ -51,3 +51,8 @@ android/app/*.keystore
 *.keystore
 
 lib/firebase_options.dart
+
+.env
+.env.local
+.env.production
+.env.staging

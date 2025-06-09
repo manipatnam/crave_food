@@ -12,10 +12,10 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # Firebase dependencies
+  # Firebase dependencies (updated versions)
   firebase_core: ^2.24.2
-  firebase_auth: ^4.15.3
-  cloud_firestore: ^4.13.6
+  firebase_auth: ^4.16.0
+  cloud_firestore: ^4.14.0
   
   # State management
   provider: ^6.1.1
@@ -28,6 +28,15 @@ dependencies:
   
   # Loading indicators
   flutter_spinkit: ^5.2.0
+  
+  # URL handling
+  url_launcher: ^6.2.1
+  
+  # HTTP requests
+  http: ^1.1.0
+  
+  # Environment variables
+  flutter_dotenv: ^5.1.0
 
 dev_dependencies:
   flutter_test:
@@ -36,3 +45,7 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  
+  # Include environment file
+  assets:
+    - .env

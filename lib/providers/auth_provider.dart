@@ -25,13 +25,19 @@ class AuthProvider extends ChangeNotifier {
   // Initialize authentication state listener
   void _initializeAuthListener() {
     _authService.authStateChanges.listen((User? firebaseUser) async {
+      print("🔍 Auth state changed: ${firebaseUser?.email ?? 'null'}");
+      
       if (firebaseUser != null) {
+        print("✅ User authenticated: ${firebaseUser.email}");
         _user = UserModel.fromFirebaseUser(firebaseUser);
         _status = AuthStatus.authenticated;
       } else {
+        print("❌ User not authenticated");
         _user = null;
         _status = AuthStatus.unauthenticated;
       }
+      
+      print("📊 Updated auth status: $_status");
       notifyListeners();
     });
   }
@@ -64,14 +70,19 @@ class AuthProvider extends ChangeNotifier {
       clearError();
       _setLoading(true);
       
+      print("🔐 Attempting sign in for: $email");
+      
       final userModel = await _authService.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
       
+      print("📊 Sign in result: ${userModel?.email ?? 'null'}");
+      
       _setLoading(false);
       return userModel != null;
     } catch (e) {
+      print("❌ Sign in error: $e");
       _setError(e.toString());
       return false;
     }
@@ -87,15 +98,42 @@ class AuthProvider extends ChangeNotifier {
       clearError();
       _setLoading(true);
       
-      final userModel = await _authService.registerWithEmailAndPassword(
-        email: email,
-        password: password,
-        displayName: displayName,
-      );
+      print("📝 Attempting registration for: $email");
+      
+      UserModel? userModel;
+      try {
+        userModel = await _authService.registerWithEmailAndPassword(
+          email: email,
+          password: password,
+          displayName: displayName,
+        );
+      } catch (e) {
+        print("⚠️ Registration threw error, but checking if user exists...");
+        
+        // Check if user was actually created despite the error
+        final currentUser = _authService.currentUser;
+        if (currentUser != null && currentUser.email == email.trim()) {
+          print("✅ User was created successfully despite error");
+          userModel = UserModel.fromFirebaseUser(currentUser);
+        } else {
+          rethrow; // Re-throw if user wasn't actually created
+        }
+      }
+      
+      print("📊 Final registration result: ${userModel?.email ?? 'null'}");
       
       _setLoading(false);
-      return userModel != null;
+      
+      if (userModel != null) {
+        print("✅ Registration successful, waiting for auth state update...");
+        // Give a moment for the auth state listener to update
+        await Future.delayed(const Duration(milliseconds: 800));
+        return true;
+      } else {
+        return false;
+      }
     } catch (e) {
+      print("❌ Registration error: $e");
       _setError(e.toString());
       return false;
     }
@@ -107,10 +145,14 @@ class AuthProvider extends ChangeNotifier {
       clearError();
       _setLoading(true);
       
+      print("🚪 Signing out user...");
+      
       await _authService.signOut();
       
       _setLoading(false);
+      print("✅ Sign out successful");
     } catch (e) {
+      print("❌ Sign out error: $e");
       _setError(e.toString());
     }
   }

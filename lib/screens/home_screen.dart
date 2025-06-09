@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'favourites_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,7 +16,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _pages = [
     const HomePage(),
     const SearchPage(),
-    const OrdersPage(),
+    const FavouritesScreen(), // ← Changed from OrdersPage to FavouritesScreen
     const ProfilePage(),
   ];
 
@@ -43,8 +44,8 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Search',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: 'Orders',
+            icon: Icon(Icons.favorite), // ← Changed from receipt_long to favorite
+            label: 'Favourites',        // ← Changed from Orders to Favourites
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
