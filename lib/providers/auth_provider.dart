@@ -72,10 +72,26 @@ class AuthProvider extends ChangeNotifier {
       
       print("🔐 Attempting sign in for: $email");
       
-      final userModel = await _authService.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      UserModel? userModel;
+      try {
+        userModel = await _authService.signInWithEmailAndPassword(
+          email: email,
+          password: password,
+        );
+      } catch (e) {
+        print("⚠️ Sign in threw error, but checking auth state...");
+        
+        // Wait a moment and check if user is actually authenticated
+        await Future.delayed(const Duration(milliseconds: 1500));
+        
+        if (_status == AuthStatus.authenticated) {
+          print("✅ User is authenticated despite error - treating as success");
+          _setLoading(false);
+          return true;
+        }
+        
+        rethrow; // Re-throw if user is not actually authenticated
+      }
       
       print("📊 Sign in result: ${userModel?.email ?? 'null'}");
       

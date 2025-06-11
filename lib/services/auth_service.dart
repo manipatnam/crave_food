@@ -42,9 +42,17 @@ class AuthService {
 
       final User? user = result.user;
       if (user != null) {
-        print("✅ Firebase: Sign in successful");
-        // Update last login time in Firestore
-        await _updateUserLoginTime(user.uid);
+        print("✅ Firebase: Sign in successful for ${user.email}");
+        
+        // Small delay to ensure Firebase state is properly updated
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        // Update last login time in Firestore (non-blocking)
+        _updateUserLoginTime(user.uid).catchError((e) {
+          print("⚠️ Failed to update login time: $e");
+          // Don't throw - this is not critical
+        });
+        
         return UserModel.fromFirebaseUser(user);
       }
       
@@ -55,7 +63,17 @@ class AuthService {
       throw _handleAuthException(e);
     } catch (e) {
       print("❌ Firebase: Unexpected error during sign in: $e");
-      throw 'An unexpected error occurred during sign in. Please try again.';
+      
+      // Check if user is actually signed in despite the error
+      await Future.delayed(const Duration(milliseconds: 1000));
+      final currentUser = _firebaseAuth.currentUser;
+      
+      if (currentUser != null && currentUser.email == email.trim()) {
+        print("✅ User is actually signed in despite error - returning success");
+        return UserModel.fromFirebaseUser(currentUser);
+      }
+      
+      throw 'Sign in encountered an error, but may have succeeded. Please check if you are logged in.';
     }
   }
 

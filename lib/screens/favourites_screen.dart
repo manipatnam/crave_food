@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/favourites_provider.dart';
 import '../models/favourite_model.dart';
+import '../services/favourites_service.dart'; // Add this import for SortType
 import 'add_favourite_screen.dart';
 
 class FavouritesScreen extends StatefulWidget {
@@ -102,13 +103,16 @@ class _FavouritesScreenState extends State<FavouritesScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => const AddFavouriteScreen(),
             ),
           );
+          if (result == true && mounted) {
+            Provider.of<FavouritesProvider>(context, listen: false).loadFavourites();
+          }
         },
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,

@@ -12,10 +12,10 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # Firebase dependencies (updated versions)
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.16.0
-  cloud_firestore: ^4.14.0
+  # Firebase dependencies (latest stable versions)
+  firebase_core: ^2.32.0
+  firebase_auth: ^4.20.0
+  cloud_firestore: ^4.17.5
   
   # State management
   provider: ^6.1.1

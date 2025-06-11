@@ -60,6 +60,21 @@ class _HomeScreenState extends State<HomeScreen> {
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
+  // Safe method to get display name
+  String _getDisplayName(AuthProvider authProvider) {
+    if (authProvider.user?.displayName != null && 
+        authProvider.user!.displayName!.isNotEmpty) {
+      return authProvider.user!.displayName!;
+    }
+    
+    if (authProvider.user?.email != null && 
+        authProvider.user!.email!.isNotEmpty) {
+      return authProvider.user!.email!.split('@')[0];
+    }
+    
+    return 'User';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,9 +102,7 @@ class HomePage extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            authProvider.user?.displayName ?? 
-                            authProvider.user?.email?.split('@')[0] ?? 
-                            'User',
+                            _getDisplayName(authProvider),
                             style: const TextStyle(
                               fontSize: 24,
                               fontWeight: FontWeight.bold,
@@ -421,6 +434,41 @@ class OrdersPage extends StatelessWidget {
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
+  // Helper method to safely get first character
+  String _getInitial(String? text) {
+    if (text == null || text.isEmpty) return '';
+    return text.trim().substring(0, 1).toUpperCase();
+  }
+
+  // Get display initial with fallback logic
+  String _getDisplayInitial(AuthProvider authProvider) {
+    // Try display name first
+    String initial = _getInitial(authProvider.user?.displayName);
+    if (initial.isNotEmpty) return initial;
+    
+    // Try email
+    initial = _getInitial(authProvider.user?.email);
+    if (initial.isNotEmpty) return initial;
+    
+    // Fallback
+    return 'U';
+  }
+
+  // Get display name with fallback
+  String _getDisplayName(AuthProvider authProvider) {
+    if (authProvider.user?.displayName != null && 
+        authProvider.user!.displayName!.isNotEmpty) {
+      return authProvider.user!.displayName!;
+    }
+    
+    if (authProvider.user?.email != null && 
+        authProvider.user!.email!.isNotEmpty) {
+      return authProvider.user!.email!.split('@')[0];
+    }
+    
+    return 'User';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -443,9 +491,7 @@ class ProfilePage extends StatelessWidget {
                     radius: 50,
                     backgroundColor: Theme.of(context).primaryColor,
                     child: Text(
-                      authProvider.user?.displayName?.substring(0, 1).toUpperCase() ?? 
-                      authProvider.user?.email?.substring(0, 1).toUpperCase() ?? 
-                      'U',
+                      _getDisplayInitial(authProvider),
                       style: const TextStyle(
                         fontSize: 32,
                         color: Colors.white,
@@ -455,7 +501,7 @@ class ProfilePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    authProvider.user?.displayName ?? 'User',
+                    _getDisplayName(authProvider),
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -463,7 +509,7 @@ class ProfilePage extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    authProvider.user?.email ?? '',
+                    authProvider.user?.email ?? 'No email',
                     style: const TextStyle(
                       color: Colors.grey,
                       fontSize: 16,
