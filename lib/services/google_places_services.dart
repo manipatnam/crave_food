@@ -1,213 +1,194 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../models/place_model.dart';
 
 class GooglePlacesService {
+  static String get _apiKey => dotenv.env['GOOGLE_PLACES_API_KEY'] ?? '';
   static const String _baseUrl = 'https://maps.googleapis.com/maps/api/place';
 
-  // Get API key from environment variable
-  static String get _apiKey => dotenv.env['GOOGLE_PLACES_API_KEY'] ?? '';
-
-  // Search for places using text input
+  // Search for places with photos
   Future<List<PlaceModel>> searchPlaces(String query) async {
-    if (query.isEmpty) {
-      print('❌ Search query is empty');
-      return [];
-    }
-
-    if (!isApiKeyConfigured()) {
-      print('❌ API key not configured, returning mock data for testing');
-      return _getMockRestaurants(query);
-    }
-
     try {
-      final encodedQuery = Uri.encodeComponent(query);
-      final url = Uri.parse(
-        '$_baseUrl/textsearch/json?query=$encodedQuery&type=restaurant&key=$_apiKey'
-      );
+      final String url = '$_baseUrl/textsearch/json'
+          '?query=${Uri.encodeComponent(query)}'
+          '&type=restaurant'
+          '&key=$_apiKey';
 
-      print('🔍 Searching for places: $query');
-      
-      final response = await http.get(url);
+      final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         
         if (data['status'] == 'OK') {
-          final results = data['results'] as List;
-          final places = results
-              .map((place) => PlaceModel.fromGooglePlaces(place))
-              .where((place) => place.isRestaurant)
-              .take(10)
-              .toList();
+          final List<dynamic> results = data['results'];
           
-          print('✅ Found ${places.length} restaurant results');
-          return places;
-        } else if (data['status'] == 'ZERO_RESULTS') {
-          print('ℹ️ No results found for: $query');
-          return [];
-        } else {
-          print('❌ Google Places API error: ${data['status']}');
-          if (data['error_message'] != null) {
-            print('Error details: ${data['error_message']}');
-          }
-          return _getMockRestaurants(query);
-        }
-      } else {
-        print('❌ HTTP error: ${response.statusCode}');
-        return _getMockRestaurants(query);
-      }
-    } catch (e) {
-      print('❌ Error searching places: $e');
-      return _getMockRestaurants(query);
-    }
-  }
-
-  // Get autocomplete suggestions
-  Future<List<PlaceModel>> getAutocompleteSuggestions(String input) async {
-    if (input.isEmpty) return [];
-
-    if (!isApiKeyConfigured()) {
-      return _getMockRestaurants(input).take(3).toList();
-    }
-
-    try {
-      final encodedInput = Uri.encodeComponent(input);
-      final url = Uri.parse(
-        '$_baseUrl/autocomplete/json?input=$encodedInput&types=establishment&key=$_apiKey'
-      );
-
-      print('🔍 Getting autocomplete suggestions for: $input');
-
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        
-        if (data['status'] == 'OK') {
-          final predictions = data['predictions'] as List;
-          
+          // Convert to PlaceModel objects with enhanced data
           List<PlaceModel> places = [];
-          for (var prediction in predictions.take(3)) {
-            final placeDetails = await getPlaceDetails(prediction['place_id']);
-            if (placeDetails != null && placeDetails.isRestaurant) {
-              places.add(placeDetails);
+          
+          for (var result in results.take(10)) { // Limit to 10 results
+            try {
+              var place = PlaceModel.fromGooglePlaces(result);
+              
+              // Get additional details if photo reference exists
+              if (place.photoReference != null) {
+                place = place.copyWith(
+                  photoUrl: place.getPhotoUrl(_apiKey, maxWidth: 400),
+                );
+              }
+              
+              places.add(place);
+            } catch (e) {
+              print('Error parsing place: $e');
+              // Continue with other places even if one fails
             }
           }
           
-          print('✅ Found ${places.length} autocomplete suggestions');
           return places;
+        } else {
+          throw Exception('Places API error: ${data['status']}');
         }
+      } else {
+        throw Exception('HTTP error: ${response.statusCode}');
       }
-      
-      return _getMockRestaurants(input).take(3).toList();
     } catch (e) {
-      print('❌ Error getting autocomplete suggestions: $e');
-      return _getMockRestaurants(input).take(3).toList();
+      print('Error searching places: $e');
+      throw Exception('Failed to search places: $e');
     }
   }
 
-  // Get detailed information about a place
+  // Get detailed place information
   Future<PlaceModel?> getPlaceDetails(String placeId) async {
-    if (!isApiKeyConfigured()) return null;
-
     try {
-      final url = Uri.parse(
-        '$_baseUrl/details/json?place_id=$placeId&fields=place_id,name,formatted_address,geometry,photos,rating,types&key=$_apiKey'
-      );
+      final String url = '$_baseUrl/details/json'
+          '?place_id=$placeId'
+          '&fields=place_id,name,formatted_address,geometry,rating,user_ratings_total,price_level,types,photos,opening_hours,formatted_phone_number,website'
+          '&key=$_apiKey';
 
-      final response = await http.get(url);
+      final response = await http.get(Uri.parse(url));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         
         if (data['status'] == 'OK') {
-          return PlaceModel.fromGooglePlaces(data['result']);
+          final result = data['result'];
+          var place = PlaceModel.fromGooglePlaces(result);
+          
+          // Add photo URL if available
+          if (place.photoReference != null) {
+            place = place.copyWith(
+              photoUrl: place.getPhotoUrl(_apiKey, maxWidth: 600),
+            );
+          }
+          
+          return place;
         }
       }
       return null;
     } catch (e) {
-      print('❌ Error getting place details: $e');
+      print('Error getting place details: $e');
       return null;
     }
   }
 
-  // Mock restaurants for testing when API key is not configured
-  List<PlaceModel> _getMockRestaurants(String query) {
-    final mockRestaurants = [
-      PlaceModel(
-        placeId: 'mock_1',
-        name: 'Pizza Palace',
-        address: 'Main Street, City Center',
-        latitude: 40.7128,
-        longitude: -74.0060,
-        rating: 4.5,
-        types: ['restaurant', 'food'],
-      ),
-      PlaceModel(
-        placeId: 'mock_2',
-        name: 'Burger House',
-        address: 'Second Avenue, Downtown',
-        latitude: 40.7589,
-        longitude: -73.9851,
-        rating: 4.2,
-        types: ['restaurant', 'meal_takeaway'],
-      ),
-      PlaceModel(
-        placeId: 'mock_3',
-        name: 'Sushi Bar',
-        address: 'Third Street, Food District',
-        latitude: 40.7505,
-        longitude: -73.9934,
-        rating: 4.8,
-        types: ['restaurant', 'food'],
-      ),
-      PlaceModel(
-        placeId: 'mock_4',
-        name: 'Taco Corner',
-        address: 'Fourth Street, Market Square',
-        latitude: 40.7505,
-        longitude: -73.9934,
-        rating: 4.1,
-        types: ['restaurant', 'meal_takeaway'],
-      ),
-      PlaceModel(
-        placeId: 'mock_5',
-        name: 'Coffee & Cafe',
-        address: 'Fifth Avenue, Business District',
-        latitude: 40.7505,
-        longitude: -73.9934,
-        rating: 4.3,
-        types: ['cafe', 'food'],
-      ),
-    ];
+  // Get nearby restaurants with photos
+  Future<List<PlaceModel>> getNearbyRestaurants({
+    required double latitude,
+    required double longitude,
+    int radius = 5000,
+  }) async {
+    try {
+      final String url = '$_baseUrl/nearbysearch/json'
+          '?location=$latitude,$longitude'
+          '&radius=$radius'
+          '&type=restaurant'
+          '&key=$_apiKey';
 
-    // Filter based on query
-    final queryLower = query.toLowerCase();
-    return mockRestaurants.where((restaurant) {
-      return restaurant.name.toLowerCase().contains(queryLower) ||
-             restaurant.address.toLowerCase().contains(queryLower);
-    }).toList();
-  }
+      final response = await http.get(Uri.parse(url));
 
-  // Validate API key
-  static bool isApiKeyConfigured() {
-    final isConfigured = _apiKey.isNotEmpty && _apiKey.length > 20;
-    
-    if (!isConfigured) {
-      print('⚠️ Google Places API key not configured');
-      print('💡 Add GOOGLE_PLACES_API_KEY to your .env file');
-      print('🧪 Using mock data for testing');
-    } else {
-      print('✅ Google Places API key configured (${_apiKey.substring(0, 8)}...)');
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        if (data['status'] == 'OK') {
+          final List<dynamic> results = data['results'];
+          
+          List<PlaceModel> places = [];
+          
+          for (var result in results.take(20)) {
+            try {
+              var place = PlaceModel.fromGooglePlaces(result);
+              
+              if (place.photoReference != null) {
+                place = place.copyWith(
+                  photoUrl: place.getPhotoUrl(_apiKey, maxWidth: 400),
+                );
+              }
+              
+              places.add(place);
+            } catch (e) {
+              print('Error parsing nearby place: $e');
+            }
+          }
+          
+          // Sort by rating (highest first)
+          places.sort((a, b) {
+            if (a.rating == null && b.rating == null) return 0;
+            if (a.rating == null) return 1;
+            if (b.rating == null) return -1;
+            return b.rating!.compareTo(a.rating!);
+          });
+          
+          return places;
+        }
+      }
+      return [];
+    } catch (e) {
+      print('Error getting nearby restaurants: $e');
+      return [];
     }
-    
-    return isConfigured;
   }
 
-  // Get masked API key for debugging
-  static String get maskedApiKey {
-    return _apiKey.isNotEmpty ? '${_apiKey.substring(0, 8)}...' : 'Not configured (using mock data)';
+  // Get photo URL for a photo reference
+  String getPhotoUrl(String photoReference, {int maxWidth = 400}) {
+    return 'https://maps.googleapis.com/maps/api/place/photo'
+        '?maxwidth=$maxWidth'
+        '&photo_reference=$photoReference'
+        '&key=$_apiKey';
+  }
+}
+
+// Extension to add copyWith method to PlaceModel
+extension PlaceModelExtension on PlaceModel {
+  PlaceModel copyWith({
+    String? placeId,
+    String? name,
+    String? displayAddress,
+    double? rating,
+    int? userRatingsTotal,
+    String? priceLevel,
+    List<String>? types,
+    GeoPoint? geoPoint,
+    String? photoReference,
+    String? photoUrl,
+    bool? isOpen,
+    String? phoneNumber,
+    String? website,
+  }) {
+    return PlaceModel(
+      placeId: placeId ?? this.placeId,
+      name: name ?? this.name,
+      displayAddress: displayAddress ?? this.displayAddress,
+      rating: rating ?? this.rating,
+      userRatingsTotal: userRatingsTotal ?? this.userRatingsTotal,
+      priceLevel: priceLevel ?? this.priceLevel,
+      types: types ?? this.types,
+      geoPoint: geoPoint ?? this.geoPoint,
+      photoReference: photoReference ?? this.photoReference,
+      photoUrl: photoUrl ?? this.photoUrl,
+      isOpen: isOpen ?? this.isOpen,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      website: website ?? this.website,
+    );
   }
 }

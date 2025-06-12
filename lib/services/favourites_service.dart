@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 import '../models/favourite_model.dart';
 
 enum SortType {
@@ -15,35 +16,54 @@ class FavouritesService {
   String? get _currentUserId => _auth.currentUser?.uid;
 
   // Get favourites collection reference for current user
-  CollectionReference get _favouritesCollection => 
-      _firestore.collection('users').doc(_currentUserId).collection('favourites');
+  CollectionReference? get _favouritesCollection {
+    if (_currentUserId == null) return null;
+    return _firestore.collection('users').doc(_currentUserId).collection('favourites');
+  }
 
   // Get favourites stream with sorting
   Stream<List<Favourite>> getFavourites({SortType sortBy = SortType.dateAdded}) {
     if (_currentUserId == null) {
-      print('❌ No authenticated user found');
+      print('❌ FavouritesService: No authenticated user found');
+      return Stream.value([]);
+    }
+
+    if (_favouritesCollection == null) {
+      print('❌ FavouritesService: Could not get favourites collection');
       return Stream.value([]);
     }
 
     String orderByField = sortBy == SortType.dateAdded ? 'dateAdded' : 'restaurantName';
     bool descending = sortBy == SortType.dateAdded;
 
-    print('📱 Getting favourites stream for user: $_currentUserId');
-    print('🔄 Sorting by: $orderByField (descending: $descending)');
+    print('📱 FavouritesService: Getting favourites stream for user: $_currentUserId');
+    print('🔄 FavouritesService: Sorting by: $orderByField (descending: $descending)');
 
-    return _favouritesCollection
+    return _favouritesCollection!
         .orderBy(orderByField, descending: descending)
         .snapshots()
         .map((snapshot) {
-          final favourites = snapshot.docs
-              .map((doc) => Favourite.fromFirestore(doc))
-              .toList();
+          print('📦 FavouritesService: Received snapshot with ${snapshot.docs.length} documents');
           
-          print('✅ Retrieved ${favourites.length} favourites');
+          final favourites = <Favourite>[];
+          
+          for (var doc in snapshot.docs) {
+            try {
+              final favourite = Favourite.fromFirestore(doc);
+              favourites.add(favourite);
+              print('✅ FavouritesService: Successfully parsed favourite: ${favourite.restaurantName}');
+            } catch (e) {
+              print('❌ FavouritesService: Error parsing document ${doc.id}: $e');
+              // Continue with other documents even if one fails
+            }
+          }
+          
+          print('✅ FavouritesService: Successfully retrieved ${favourites.length} favourites');
           return favourites;
         })
         .handleError((error) {
-          print('❌ Error in favourites stream: $error');
+          print('❌ FavouritesService: Error in favourites stream: $error');
+          print('Stack trace: ${StackTrace.current}');
           throw 'Failed to load favourites: $error';
         });
   }
@@ -54,18 +74,33 @@ class FavouritesService {
       throw 'User not authenticated';
     }
 
+    if (_favouritesCollection == null) {
+      throw 'Could not access favourites collection';
+    }
+
     try {
-      print('➕ Adding favourite for user: $_currentUserId');
-      print('📍 Restaurant: ${favourite.restaurantName}');
+      print('➕ FavouritesService: Adding favourite for user: $_currentUserId');
+      print('📍 FavouritesService: Restaurant: ${favourite.restaurantName}');
+      print('🍕 FavouritesService: Food items: ${favourite.foodNames}');
+      print('🔗 FavouritesService: Social URLs: ${favourite.socialUrls}');
 
       // Create favourite with current user ID
       final favouriteToAdd = favourite.copyWith(userId: _currentUserId!);
       
-      await _favouritesCollection.add(favouriteToAdd.toFirestore());
+      print('🔄 FavouritesService: Converting to Firestore format...');
+      final firestoreData = favouriteToAdd.toFirestore();
+      print('📦 FavouritesService: Firestore data: $firestoreData');
       
-      print('✅ Favourite added successfully');
+      print('🔄 FavouritesService: Adding document to Firestore...');
+      final docRef = await _favouritesCollection!.add(firestoreData);
+      
+      print('✅ FavouritesService: Favourite added successfully with ID: ${docRef.id}');
+      
+      // Wait a moment for the document to be fully written
+      await Future.delayed(const Duration(milliseconds: 500));
     } catch (e) {
-      print('❌ Error adding favourite: $e');
+      print('❌ FavouritesService: Error adding favourite: $e');
+      print('Stack trace: ${StackTrace.current}');
       throw 'Failed to add favourite: $e';
     }
   }
@@ -76,10 +111,14 @@ class FavouritesService {
       throw 'User not authenticated';
     }
 
+    if (_favouritesCollection == null) {
+      throw 'Could not access favourites collection';
+    }
+
     try {
-      print('📝 Updating favourite: ${favourite.id}');
+      print('📝 FavouritesService: Updating favourite: ${favourite.id}');
       
-      await _favouritesCollection.doc(favourite.id).update({
+      await _favouritesCollection!.doc(favourite.id).update({
         'restaurantName': favourite.restaurantName,
         'foodNames': favourite.foodNames,
         'socialUrls': favourite.socialUrls,
@@ -87,9 +126,10 @@ class FavouritesService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
       
-      print('✅ Favourite updated successfully');
+      print('✅ FavouritesService: Favourite updated successfully');
     } catch (e) {
-      print('❌ Error updating favourite: $e');
+      print('❌ FavouritesService: Error updating favourite: $e');
+      print('Stack trace: ${StackTrace.current}');
       throw 'Failed to update favourite: $e';
     }
   }
@@ -100,14 +140,19 @@ class FavouritesService {
       throw 'User not authenticated';
     }
 
+    if (_favouritesCollection == null) {
+      throw 'Could not access favourites collection';
+    }
+
     try {
-      print('🗑️ Deleting favourite: $favouriteId');
+      print('🗑️ FavouritesService: Deleting favourite: $favouriteId');
       
-      await _favouritesCollection.doc(favouriteId).delete();
+      await _favouritesCollection!.doc(favouriteId).delete();
       
-      print('✅ Favourite deleted successfully');
+      print('✅ FavouritesService: Favourite deleted successfully');
     } catch (e) {
-      print('❌ Error deleting favourite: $e');
+      print('❌ FavouritesService: Error deleting favourite: $e');
+      print('Stack trace: ${StackTrace.current}');
       throw 'Failed to delete favourite: $e';
     }
   }
@@ -118,15 +163,19 @@ class FavouritesService {
       return false;
     }
 
+    if (_favouritesCollection == null) {
+      return false;
+    }
+
     try {
-      final querySnapshot = await _favouritesCollection
+      final querySnapshot = await _favouritesCollection!
           .where('googlePlaceId', isEqualTo: googlePlaceId)
           .limit(1)
           .get();
       
       return querySnapshot.docs.isNotEmpty;
     } catch (e) {
-      print('❌ Error checking if restaurant is favourited: $e');
+      print('❌ FavouritesService: Error checking if restaurant is favourited: $e');
       return false;
     }
   }
@@ -141,21 +190,29 @@ class FavouritesService {
       };
     }
 
+    if (_favouritesCollection == null) {
+      return {
+        'totalFavourites': 0,
+        'thisMonth': 0,
+        'thisWeek': 0,
+      };
+    }
+
     try {
       final now = DateTime.now();
       final startOfMonth = DateTime(now.year, now.month, 1);
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
 
       // Get all favourites
-      final allSnapshot = await _favouritesCollection.get();
+      final allSnapshot = await _favouritesCollection!.get();
       
       // Get this month's favourites
-      final monthSnapshot = await _favouritesCollection
+      final monthSnapshot = await _favouritesCollection!
           .where('dateAdded', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
           .get();
       
       // Get this week's favourites
-      final weekSnapshot = await _favouritesCollection
+      final weekSnapshot = await _favouritesCollection!
           .where('dateAdded', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfWeek))
           .get();
 
@@ -165,7 +222,7 @@ class FavouritesService {
         'thisWeek': weekSnapshot.docs.length,
       };
     } catch (e) {
-      print('❌ Error getting favourites stats: $e');
+      print('❌ FavouritesService: Error getting favourites stats: $e');
       return {
         'totalFavourites': 0,
         'thisMonth': 0,
@@ -180,8 +237,12 @@ class FavouritesService {
       return null;
     }
 
+    if (_favouritesCollection == null) {
+      return null;
+    }
+
     try {
-      final doc = await _favouritesCollection.doc(favouriteId).get();
+      final doc = await _favouritesCollection!.doc(favouriteId).get();
       
       if (doc.exists) {
         return Favourite.fromFirestore(doc);
@@ -189,7 +250,7 @@ class FavouritesService {
       
       return null;
     } catch (e) {
-      print('❌ Error getting favourite by ID: $e');
+      print('❌ FavouritesService: Error getting favourite by ID: $e');
       return null;
     }
   }
@@ -200,8 +261,12 @@ class FavouritesService {
       return [];
     }
 
+    if (_favouritesCollection == null) {
+      return [];
+    }
+
     try {
-      final snapshot = await _favouritesCollection
+      final snapshot = await _favouritesCollection!
           .orderBy('dateAdded', descending: true)
           .get();
       
@@ -216,7 +281,7 @@ class FavouritesService {
                favourite.foodNames.any((food) => food.toLowerCase().contains(queryLower));
       }).toList();
     } catch (e) {
-      print('❌ Error searching favourites: $e');
+      print('❌ FavouritesService: Error searching favourites: $e');
       return [];
     }
   }
@@ -227,11 +292,15 @@ class FavouritesService {
       throw 'User not authenticated';
     }
 
+    if (_favouritesCollection == null) {
+      throw 'Could not access favourites collection';
+    }
+
     try {
       final batch = _firestore.batch();
       
       for (final favourite in favourites) {
-        final docRef = _favouritesCollection.doc();
+        final docRef = _favouritesCollection!.doc();
         final favouriteToAdd = favourite.copyWith(
           id: docRef.id,
           userId: _currentUserId!,
@@ -240,9 +309,9 @@ class FavouritesService {
       }
       
       await batch.commit();
-      print('✅ Added ${favourites.length} favourites in batch');
+      print('✅ FavouritesService: Added ${favourites.length} favourites in batch');
     } catch (e) {
-      print('❌ Error adding multiple favourites: $e');
+      print('❌ FavouritesService: Error adding multiple favourites: $e');
       throw 'Failed to add multiple favourites: $e';
     }
   }
@@ -253,8 +322,12 @@ class FavouritesService {
       throw 'User not authenticated';
     }
 
+    if (_favouritesCollection == null) {
+      throw 'Could not access favourites collection';
+    }
+
     try {
-      final snapshot = await _favouritesCollection.get();
+      final snapshot = await _favouritesCollection!.get();
       final batch = _firestore.batch();
       
       for (final doc in snapshot.docs) {
@@ -262,10 +335,32 @@ class FavouritesService {
       }
       
       await batch.commit();
-      print('✅ Deleted all favourites for user');
+      print('✅ FavouritesService: Deleted all favourites for user');
     } catch (e) {
-      print('❌ Error deleting all favourites: $e');
+      print('❌ FavouritesService: Error deleting all favourites: $e');
       throw 'Failed to delete all favourites: $e';
+    }
+  }
+
+  // Test Firestore connection
+  Future<bool> testConnection() async {
+    try {
+      print('🔍 FavouritesService: Testing Firestore connection...');
+      
+      if (_currentUserId == null) {
+        print('❌ FavouritesService: No authenticated user for connection test');
+        return false;
+      }
+
+      // Try to read from Firestore
+      final testDoc = await _firestore.collection('users').doc(_currentUserId).get();
+      print('✅ FavouritesService: Firestore connection test successful');
+      print('📊 User document exists: ${testDoc.exists}');
+      
+      return true;
+    } catch (e) {
+      print('❌ FavouritesService: Firestore connection test failed: $e');
+      return false;
     }
   }
 }
