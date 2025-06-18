@@ -12,6 +12,9 @@ import '../widgets/add_favourite/restaurant_search_section.dart';
 import '../widgets/add_favourite/selected_place_card.dart';
 import '../widgets/add_favourite/food_items_section.dart';
 import '../widgets/add_favourite/social_urls_section.dart';
+import '../widgets/add_favourite/dietary_options_section.dart';
+import '../widgets/add_favourite/timing_information_section.dart';
+import '../widgets/add_favourite/tags_section.dart';
 import '../widgets/add_favourite/notes_section.dart';
 import '../widgets/add_favourite/save_button.dart';
 
@@ -29,6 +32,8 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
   final _foodController = TextEditingController();
   final _socialController = TextEditingController();
   final _notesController = TextEditingController();
+  final _tagController = TextEditingController();
+  final _timingNotesController = TextEditingController();
   
   final GooglePlacesService _placesService = GooglePlacesService();
   
@@ -36,8 +41,15 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
   PlaceModel? _selectedPlace;
   List<String> _foodItems = [];
   List<String> _socialUrls = [];
+  List<String> _tags = [];
   bool _isSearching = false;
   bool _isAdding = false;
+  
+  // New fields
+  bool _isVegetarianAvailable = false;
+  bool _isNonVegetarianAvailable = false;
+  TimeOfDay? _userOpeningTime;
+  TimeOfDay? _userClosingTime;
   
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -80,6 +92,8 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
     _foodController.dispose();
     _socialController.dispose();
     _notesController.dispose();
+    _tagController.dispose();
+    _timingNotesController.dispose();
     super.dispose();
   }
 
@@ -157,6 +171,24 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
     });
   }
 
+  void _addTag() {
+    final tag = _tagController.text.trim().toLowerCase();
+    if (tag.isNotEmpty && !_tags.contains(tag)) {
+      setState(() {
+        _tags.add(tag);
+        _tagController.clear();
+      });
+    } else if (_tags.contains(tag)) {
+      _showSnackBar('Tag already added', isError: true);
+    }
+  }
+
+  void _removeTag(int index) {
+    setState(() {
+      _tags.removeAt(index);
+    });
+  }
+
   void _addSocialUrlFromClipboard(String url) {
     setState(() {
       if (!_socialUrls.contains(url)) {
@@ -189,6 +221,29 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
     );
   }
 
+  bool _validateForm() {
+    if (!_formKey.currentState!.validate()) {
+      return false;
+    }
+    
+    if (_selectedPlace == null) {
+      _showSnackBar('Please select a restaurant', isError: true);
+      return false;
+    }
+
+    if (_foodItems.isEmpty) {
+      _showSnackBar('Please add at least one food item', isError: true);
+      return false;
+    }
+
+    if (!_isVegetarianAvailable && !_isNonVegetarianAvailable) {
+      _showSnackBar('Please select at least one dietary option', isError: true);
+      return false;
+    }
+
+    return true;
+  }
+
   Future<void> _saveFavourite() async {
     print('💾 _saveFavourite called');
     
@@ -199,20 +254,7 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
       return;
     }
 
-    if (!_formKey.currentState!.validate()) {
-      print('❌ Form validation failed');
-      return;
-    }
-    
-    if (_selectedPlace == null) {
-      print('❌ No place selected');
-      _showSnackBar('Please select a restaurant', isError: true);
-      return;
-    }
-
-    if (_foodItems.isEmpty) {
-      print('⚠️ No food items added');
-      _showSnackBar('Please add at least one food item', isError: true);
+    if (!_validateForm()) {
       return;
     }
 
@@ -238,6 +280,13 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
         phoneNumber: _selectedPlace!.phoneNumber,
         website: _selectedPlace!.website,
         isOpen: _selectedPlace!.isOpen,
+        // New fields
+        isVegetarianAvailable: _isVegetarianAvailable,
+        isNonVegetarianAvailable: _isNonVegetarianAvailable,
+        userOpeningTime: _userOpeningTime,
+        userClosingTime: _userClosingTime,
+        timingNotes: _timingNotesController.text.isNotEmpty ? _timingNotesController.text : null,
+        tags: _tags,
       );
 
       print('🔄 Calling favouritesProvider.addFavourite...');
@@ -384,6 +433,54 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
                           foodItems: _foodItems,
                           onAddItem: _addFoodItem,
                           onRemoveItem: _removeFoodItem,
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // NEW: Dietary Options Section
+                        DietaryOptionsSection(
+                          isVegetarianAvailable: _isVegetarianAvailable,
+                          isNonVegetarianAvailable: _isNonVegetarianAvailable,
+                          onVegetarianChanged: (value) {
+                            setState(() {
+                              _isVegetarianAvailable = value ?? false;
+                            });
+                          },
+                          onNonVegetarianChanged: (value) {
+                            setState(() {
+                              _isNonVegetarianAvailable = value ?? false;
+                            });
+                          },
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // NEW: Timing Information Section
+                        TimingInformationSection(
+                          selectedPlace: _selectedPlace,
+                          userOpeningTime: _userOpeningTime,
+                          userClosingTime: _userClosingTime,
+                          timingNotesController: _timingNotesController,
+                          onOpeningTimeChanged: (time) {
+                            setState(() {
+                              _userOpeningTime = time;
+                            });
+                          },
+                          onClosingTimeChanged: (time) {
+                            setState(() {
+                              _userClosingTime = time;
+                            });
+                          },
+                        ),
+                        
+                        const SizedBox(height: 24),
+                        
+                        // NEW: Tags Section
+                        TagsSection(
+                          controller: _tagController,
+                          tags: _tags,
+                          onAddTag: _addTag,
+                          onRemoveTag: _removeTag,
                         ),
                         
                         const SizedBox(height: 24),

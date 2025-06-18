@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../widgets/add_favourite/dietary_options_section.dart';
+import '../../widgets/add_favourite/timing_information_section.dart';
+import '../../widgets/add_favourite/tags_section.dart';
 
 class SaveButton extends StatelessWidget {
   final bool isAdding;
