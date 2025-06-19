@@ -19,7 +19,9 @@ import '../widgets/add_favourite/notes_section.dart';
 import '../widgets/add_favourite/save_button.dart';
 
 class AddFavouriteScreen extends StatefulWidget {
-  const AddFavouriteScreen({super.key});
+  final PlaceModel? prefilledPlace;
+  
+  const AddFavouriteScreen({super.key, this.prefilledPlace});
 
   @override
   State<AddFavouriteScreen> createState() => _AddFavouriteScreenState();
@@ -39,6 +41,7 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
   
   List<PlaceModel> _searchResults = [];
   PlaceModel? _selectedPlace;
+  PlaceModel? _prefilledPlace;
   List<String> _foodItems = [];
   List<String> _socialUrls = [];
   List<String> _tags = [];
@@ -60,6 +63,19 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
   void initState() {
     super.initState();
     _initializeAnimations();
+    
+    // Auto-fill data if place is provided from search screen
+    if (widget.prefilledPlace != null) {
+      print('🎯 Pre-filling data from search screen: ${widget.prefilledPlace!.name}');
+      _prefilledPlace = widget.prefilledPlace;
+      _selectedPlace = widget.prefilledPlace;
+      _restaurantController.text = widget.prefilledPlace!.name;
+      
+      // Show success message that restaurant is pre-filled
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showSnackBar('Restaurant details loaded from search!');
+      });
+    }
   }
 
   void _initializeAnimations() {
@@ -98,6 +114,14 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
   }
 
   Future<void> _searchRestaurants(String query) async {
+    // If we have a prefilled place and user hasn't changed the text, don't search
+    if (widget.prefilledPlace != null && query == widget.prefilledPlace!.name) {
+      setState(() {
+        _searchResults = [];
+      });
+      return;
+    }
+
     if (query.length < 2) {
       setState(() {
         _searchResults = [];
@@ -308,7 +332,7 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
           await Future.delayed(const Duration(milliseconds: 1000));
           
           if (mounted) {
-            print('🔙 Navigating back to favourites screen');
+            print('🔙 Navigating back to search screen');
             Navigator.pop(context, true);
           }
         } else {
@@ -365,7 +389,7 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
               ),
               child: FlexibleSpaceBar(
                 title: Text(
-                  'Add Favourite',
+                  widget.prefilledPlace != null ? 'Add to Favourites' : 'Add Favourite',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -400,33 +424,147 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Clipboard detector
-                        ClipboardDetector(
-                          onSocialUrlDetected: _addSocialUrlFromClipboard,
-                        ),
+                        // Clipboard detector (only show if not prefilled)
+                        if (widget.prefilledPlace == null)
+                          ClipboardDetector(
+                            onSocialUrlDetected: _addSocialUrlFromClipboard,
+                          ),
                         
-                        RestaurantSearchSection(
-                          controller: _restaurantController,
-                          searchResults: _searchResults,
-                          isSearching: _isSearching,
-                          selectedPlace: _selectedPlace,
-                          onSearch: _searchRestaurants,
-                          onSelectPlace: _selectPlace,
-                        ),
+                        // Restaurant search section (only show if not prefilled)
+                        if (widget.prefilledPlace == null) ...[
+                          RestaurantSearchSection(
+                            controller: _restaurantController,
+                            searchResults: _searchResults,
+                            isSearching: _isSearching,
+                            selectedPlace: _selectedPlace,
+                            onSearch: _searchRestaurants,
+                            onSelectPlace: _selectPlace,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                         
-                        const SizedBox(height: 24),
-                        
-                        SelectedPlaceCard(
-                          selectedPlace: _selectedPlace,
-                          onClear: () {
-                            setState(() {
-                              _selectedPlace = null;
-                              _restaurantController.clear();
-                            });
-                          },
-                        ),
-                        
-                        const SizedBox(height: 24),
+                        // Selected place card (always show if we have a selected place)
+                        if (_selectedPlace != null) ...[
+                          // Only show the card if it's not prefilled, or show without clear button if prefilled
+                          widget.prefilledPlace != null 
+                            ? Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Theme.of(context).primaryColor.withOpacity(0.1),
+                                      Theme.of(context).primaryColor.withOpacity(0.05),
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: Theme.of(context).primaryColor.withOpacity(0.3),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Container(
+                                        width: 80,
+                                        height: 80,
+                                        color: Colors.grey[200],
+                                        child: _selectedPlace!.photoUrl != null
+                                            ? Image.network(
+                                                _selectedPlace!.photoUrl!,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error, stackTrace) => Icon(
+                                                  Icons.restaurant,
+                                                  size: 40,
+                                                  color: Theme.of(context).primaryColor,
+                                                ),
+                                              )
+                                            : Icon(
+                                                Icons.restaurant,
+                                                size: 40,
+                                                color: Theme.of(context).primaryColor,
+                                              ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Icon(
+                                                Icons.check_circle,
+                                                color: Theme.of(context).primaryColor,
+                                                size: 20,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              const Text(
+                                                'From Search',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Colors.green,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _selectedPlace!.name,
+                                            style: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black87,
+                                            ),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          if (_selectedPlace!.rating != null || _selectedPlace!.cuisineTypes.isNotEmpty)
+                                            Row(
+                                              children: [
+                                                if (_selectedPlace!.rating != null) ...[
+                                                  Icon(Icons.star, color: Colors.amber, size: 14),
+                                                  const SizedBox(width: 2),
+                                                  Text(
+                                                    _selectedPlace!.rating!.toStringAsFixed(1),
+                                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                                  ),
+                                                ],
+                                                if (_selectedPlace!.rating != null && _selectedPlace!.cuisineTypes.isNotEmpty)
+                                                  const Text(' • ', style: TextStyle(fontSize: 12)),
+                                                if (_selectedPlace!.cuisineTypes.isNotEmpty)
+                                                  Expanded(
+                                                    child: Text(
+                                                      _selectedPlace!.cuisineTypes,
+                                                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : SelectedPlaceCard(
+                                selectedPlace: _selectedPlace,
+                                onClear: () {
+                                  setState(() {
+                                    _selectedPlace = null;
+                                    _restaurantController.clear();
+                                  });
+                                },
+                              ),
+                          const SizedBox(height: 24),
+                        ],
                         
                         FoodItemsSection(
                           controller: _foodController,
