@@ -26,7 +26,12 @@ class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final GooglePlacesService _placesService = GooglePlacesService();
   
-  LatLng _currentLocation = const LatLng(17.3850, 78.4867); // Default: Hyderabad
+  // Remove hardcoded location - will be set dynamically
+  LatLng? _currentLocation;
+  String _locationDisplayName = 'Detecting location...';
+  bool _isLocationFromGPS = false;
+  bool _isLocationFromIP = false;
+  
   Set<Marker> _markers = {};
   List<PlaceModel> _searchResults = [];
   Favourite? _selectedFavourite;
@@ -52,27 +57,90 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Future<void> _initializeMap() async {
-    print('🗺️ Initializing map...');
+    print('🗺️ Initializing map with improved location detection...');
     
     try {
-      // Get current location with fallback
+      // First, check if we should ask for location permission
+      final hasPermission = await LocationService.hasLocationPermission();
+      
+      if (!hasPermission && mounted) {
+        // Show dialog explaining why we need location
+        final shouldRequestPermission = await LocationService.showLocationPermissionDialog(context);
+        
+        if (shouldRequestPermission) {
+          await LocationService.requestLocationPermission();
+        }
+      }
+      
+      // Get location using the improved fallback strategy
       final location = await LocationService.getLocationWithFallback();
       
       if (mounted) {
         setState(() {
           _currentLocation = location;
           _isLoadingLocation = false;
+          _locationDisplayName = LocationService.getLocationDisplayName(location);
         });
         
-        print('✅ Map initialized with location: $_currentLocation');
+        // Determine location source for user feedback
+        final gpsLocation = await LocationService.getCurrentLocation();
+        if (gpsLocation != null) {
+          _isLocationFromGPS = true;
+          print('✅ Map initialized with GPS location: $location');
+        } else {
+          _isLocationFromIP = true;
+          print('✅ Map initialized with fallback location: $location');
+          _showLocationFallbackInfo();
+        }
       }
     } catch (e) {
       print('❌ Error initializing map: $e');
       if (mounted) {
         setState(() {
           _isLoadingLocation = false;
+          _locationDisplayName = 'Location unavailable';
         });
+        _showSnackBar('Error detecting location. Please try enabling location services.');
       }
+    }
+  }
+
+  void _showLocationFallbackInfo() {
+    // Show a subtle info message that we're using fallback location
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.white, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _isLocationFromIP 
+                    ? 'Using approximate location. Enable GPS for better results.'
+                    : 'Using default location. Enable location services for personalized results.',
+                  style: const TextStyle(fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'Enable GPS',
+            textColor: Colors.white,
+            onPressed: _requestLocationPermission,
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _requestLocationPermission() async {
+    final granted = await LocationService.requestLocationPermission();
+    if (granted) {
+      // Refresh location
+      _initializeMap();
     }
   }
 
@@ -165,7 +233,7 @@ class _SearchScreenState extends State<SearchScreen> {
       backgroundColor: Colors.transparent,
       builder: (context) => RestaurantInfoSheet(
         favourite: favourite,
-        currentLocation: _currentLocation,
+        currentLocation: _currentLocation!,
         onNavigate: () => _navigateToRestaurant(favourite),
         onClose: () {
           setState(() {
@@ -468,8 +536,9 @@ class _SearchScreenState extends State<SearchScreen> {
     });
   }
 
+  // THIS IS THE KEY FIX - Use proper location-based search
   Future<void> _searchPlaces(String query) async {
-    if (query.length < 2) {
+    if (query.length < 2 || _currentLocation == null) {
       setState(() {
         _searchResults = [];
       });
@@ -483,7 +552,17 @@ class _SearchScreenState extends State<SearchScreen> {
     });
 
     try {
-      final results = await _placesService.searchPlaces(query);
+      print('🔍 Searching for "$query" near ${_currentLocation!.latitude}, ${_currentLocation!.longitude}');
+      
+      // Use the proper location-based search method
+      final results = await _placesService.searchNearbyRestaurants(
+        query: query,
+        location: _currentLocation!,
+        radius: 5000, // 5km radius
+      );
+      
+      print('✅ Found ${results.length} restaurants near current location');
+      
       if (mounted) {
         setState(() {
           _searchResults = results;
@@ -492,6 +571,13 @@ class _SearchScreenState extends State<SearchScreen> {
         
         // Add search result markers
         _addSearchResultMarkers(results);
+        
+        // Show user feedback
+        if (results.isNotEmpty) {
+          _showSnackBar('Found ${results.length} restaurants near your location');
+        } else {
+          _showSnackBar('No restaurants found near your location. Try a different search.');
+        }
       }
     } catch (e) {
       print('❌ Search error: $e');
@@ -542,6 +628,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   void _goToCurrentLocation() async {
     try {
+      // Try to get fresh GPS location
       final location = await LocationService.getCurrentLocation();
       if (location != null && _mapController != null) {
         _mapController!.animateCamera(
@@ -550,7 +637,14 @@ class _SearchScreenState extends State<SearchScreen> {
         
         setState(() {
           _currentLocation = location;
+          _locationDisplayName = LocationService.getLocationDisplayName(location);
+          _isLocationFromGPS = true;
+          _isLocationFromIP = false;
         });
+        
+        _showSnackBar('Location updated!');
+      } else {
+        _showSnackBar('Unable to get current location');
       }
     } catch (e) {
       _showSnackBar('Error getting current location: $e');
@@ -574,14 +668,16 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          margin: const EdgeInsets.all(16),
+        ),
+      );
+    }
   }
 
   void _showLegendDialog() {
@@ -680,13 +776,18 @@ class _SearchScreenState extends State<SearchScreen> {
         children: [
           // Google Maps View
           _isLoadingLocation
-              ? const Center(
+              ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('Loading map...'),
+                      const CircularProgressIndicator(),
+                      const SizedBox(height: 16),
+                      const Text('Detecting your location...'),
+                      const SizedBox(height: 8),
+                      Text(
+                        'This helps us show nearby restaurants',
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
                     ],
                   ),
                 )
@@ -701,17 +802,17 @@ class _SearchScreenState extends State<SearchScreen> {
                         }
                       },
                       initialCameraPosition: CameraPosition(
-                        target: _currentLocation,
+                        target: _currentLocation!,
                         zoom: 13.0,
                       ),
                       markers: _markers,
-                      myLocationEnabled: true, // Keep Google's location indicator
+                      myLocationEnabled: _isLocationFromGPS, // Only show if GPS is available
                       myLocationButtonEnabled: false,
                       zoomControlsEnabled: false,
                       mapToolbarEnabled: false,
-                      compassEnabled: false, // Disabled
+                      compassEnabled: false,
                       trafficEnabled: false,
-                      buildingsEnabled: false, // Disabled
+                      buildingsEnabled: false,
                       mapType: MapType.normal,
                       // Disable default map symbols and POIs
                       style: '''
@@ -802,21 +903,124 @@ class _SearchScreenState extends State<SearchScreen> {
                   },
                 ),
           
-          // Search Bar with Info Icon
+          // Search Bar with Location Status
           Positioned(
             top: MediaQuery.of(context).padding.top + 16,
             left: 16,
             right: 72,
             child: Column(
               children: [
-                MapSearchBar(
-                  controller: _searchController,
-                  isSearching: _isSearching,
-                  onSearch: _searchPlaces,
-                  onCurrentLocation: _goToCurrentLocation,
+                // Location Status Bar
+                if (!_isLoadingLocation) 
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _isLocationFromGPS ? Colors.green : Colors.orange,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: GestureDetector(
+                      onTap: _goToCurrentLocation,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _isLocationFromGPS ? Icons.my_location : Icons.location_on,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            _locationDisplayName,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (!_isLocationFromGPS) ...[
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.refresh,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                
+                // Main Search Bar
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: _searchPlaces,
+                    decoration: InputDecoration(
+                      hintText: 'Search restaurants near you...',
+                      hintStyle: TextStyle(color: Colors.grey[500]),
+                      prefixIcon: _isSearching
+                          ? Container(
+                              padding: const EdgeInsets.all(14),
+                              child: const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            )
+                          : Icon(
+                              Icons.search,
+                              color: Colors.grey[600],
+                            ),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              onPressed: () {
+                                _searchController.clear();
+                                _searchPlaces('');
+                              },
+                              icon: Icon(
+                                Icons.clear,
+                                color: Colors.grey[600],
+                              ),
+                            )
+                          : IconButton(
+                              onPressed: _goToCurrentLocation,
+                              icon: Icon(
+                                Icons.my_location,
+                                color: Colors.grey[600],
+                              ),
+                              tooltip: 'Go to current location',
+                            ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
                 ),
                 
-                // Search Results List (similar to Add Favourites)
+                // Search Results List
                 if (_searchResults.isNotEmpty && !_isSearching)
                   Container(
                     margin: const EdgeInsets.only(top: 8),
@@ -876,9 +1080,9 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ),
           
-          // Filter Options
+          // Filter Options (adjust position based on location bar visibility)
           Positioned(
-            top: MediaQuery.of(context).padding.top + 80,
+            top: MediaQuery.of(context).padding.top + (_isLoadingLocation ? 80 : 110),
             left: 16,
             right: 16,
             child: MapFilters(
@@ -899,7 +1103,7 @@ class _SearchScreenState extends State<SearchScreen> {
               foregroundColor: Theme.of(context).primaryColor,
               onPressed: _goToCurrentLocation,
               heroTag: "current_location",
-              child: const Icon(Icons.my_location),
+              child: Icon(_isLocationFromGPS ? Icons.my_location : Icons.location_searching),
             ),
           ),
         ],

@@ -1,7 +1,10 @@
+// FILE: lib/services/google_places_services.dart
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../models/place_model.dart';
 
 class GooglePlacesService {
@@ -60,6 +63,69 @@ class GooglePlacesService {
     }
   }
 
+  // NEW METHOD: Search for restaurants near a specific location with query
+  Future<List<PlaceModel>> searchNearbyRestaurants({
+    required String query,
+    required LatLng location,
+    int radius = 5000,
+  }) async {
+    try {
+      print('🔍 Searching for "$query" restaurants near ${location.latitude}, ${location.longitude}');
+      
+      final String url = '$_baseUrl/textsearch/json'
+          '?query=${Uri.encodeComponent(query)}'
+          '&location=${location.latitude},${location.longitude}'
+          '&radius=$radius'
+          '&type=restaurant'
+          '&key=$_apiKey';
+
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        if (data['status'] == 'OK') {
+          final List<dynamic> results = data['results'];
+          
+          List<PlaceModel> places = [];
+          
+          for (var result in results.take(20)) { // Limit to 20 results for location search
+            try {
+              var place = PlaceModel.fromGooglePlaces(result);
+              
+              // Get additional details if photo reference exists
+              if (place.photoReference != null) {
+                place = place.copyWith(
+                  photoUrl: place.getPhotoUrl(_apiKey, maxWidth: 400),
+                );
+              }
+              
+              places.add(place);
+            } catch (e) {
+              print('Error parsing nearby place: $e');
+              // Continue with other places even if one fails
+            }
+          }
+          
+          print('✅ Found ${places.length} restaurants near location');
+          return places;
+        } else {
+          print('⚠️ Places API status: ${data['status']}');
+          if (data['status'] == 'ZERO_RESULTS') {
+            return []; // No results found, return empty list
+          }
+          throw Exception('Places API error: ${data['status']}');
+        }
+      } else {
+        throw Exception('HTTP error: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error searching nearby restaurants: $e');
+      // Return empty list instead of throwing to gracefully handle errors
+      return [];
+    }
+  }
+
   // Get detailed place information
   Future<PlaceModel?> getPlaceDetails(String placeId) async {
     try {
@@ -94,7 +160,7 @@ class GooglePlacesService {
     }
   }
 
-  // Get nearby restaurants with photos
+  // Get nearby restaurants with photos (your existing method)
   Future<List<PlaceModel>> getNearbyRestaurants({
     required double latitude,
     required double longitude,
