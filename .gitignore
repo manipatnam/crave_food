@@ -49,6 +49,8 @@ android/app/*.jks
 android/app/*.keystore
 *.jks
 *.keystore
+android/app/src/main/res/values/secrets.xml
+
 
 lib/firebase_options.dart
 

@@ -6,6 +6,8 @@ import '../models/place_model.dart';
 
 class GooglePlacesService {
   static String get _apiKey => dotenv.env['GOOGLE_PLACES_API_KEY'] ?? '';
+  static String get _mapsApiKey => dotenv.env['GOOGLE_MAPS_API_KEY'] ?? '';
+
   static const String _baseUrl = 'https://maps.googleapis.com/maps/api/place';
 
   // Search for places with photos

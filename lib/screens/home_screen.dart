@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import 'favourites_screen.dart';
+import 'search_screen.dart';
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -402,18 +404,10 @@ class SearchPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: Text(
-          'Search Page\n(Coming Soon)',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 24),
-        ),
-      ),
-    );
+    // Import the new SearchScreen
+    return const SearchScreen();
   }
 }
-
 class OrdersPage extends StatelessWidget {
   const OrdersPage({super.key});
 
