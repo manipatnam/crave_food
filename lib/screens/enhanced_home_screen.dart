@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../providers/favourites_provider.dart';
-import 'favourites_screen.dart';
+import 'enhanced_favourites_screen.dart';
 import 'search_screen.dart';
 import 'home_screen.dart';
 import 'add_favourite_screen.dart';
@@ -28,7 +28,7 @@ class _EnhancedHomeScreenState extends State<EnhancedHomeScreen>
   final List<Widget> _pages = [
     const EnhancedHomePage(),
     const SearchPage(),
-    const FavouritesScreen(),
+    const EnhancedFavouritesScreen(),
     const EnhancedProfilePage(),
   ];
 
