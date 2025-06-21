@@ -1,18 +1,21 @@
+// Updated Favourite Model with Place Categories
+// lib/models/favourite_model.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class Favourite {
   final String id;
-  final String restaurantName;
+  final String restaurantName; // Keep this name for compatibility, but it now represents any place
   final String googlePlaceId;
   final GeoPoint coordinates;
-  final List<String> foodNames;
+  final List<String> foodNames; // Will be empty for non-food places
   final List<String> socialUrls;
   final DateTime dateAdded;
   final String userId;
   final String? userNotes;
-  final String? restaurantImageUrl;
+  final String? restaurantImageUrl; // Keep name for compatibility
   final double? rating;
   final String? priceLevel;
   final String? cuisineType;
@@ -20,13 +23,17 @@ class Favourite {
   final String? website;
   final bool? isOpen;
 
-  // New fields for Phase 1
+  // Existing fields
   final bool isVegetarianAvailable;
   final bool isNonVegetarianAvailable;
   final TimeOfDay? userOpeningTime;
   final TimeOfDay? userClosingTime;
   final String? timingNotes;
   final List<String> tags;
+
+  // NEW FIELDS for place categories
+  final String? placeCategory; // 'Food & Dining', 'Activities', etc.
+  final String? foodPlaceType; // 'Restaurant', 'Cafe', etc. (only for food places)
 
   Favourite({
     required this.id,
@@ -45,13 +52,16 @@ class Favourite {
     this.phoneNumber,
     this.website,
     this.isOpen,
-    // New fields with defaults
+    // Existing fields with defaults
     this.isVegetarianAvailable = false,
     this.isNonVegetarianAvailable = false,
     this.userOpeningTime,
     this.userClosingTime,
     this.timingNotes,
     this.tags = const [],
+    // New fields
+    this.placeCategory,
+    this.foodPlaceType,
   });
 
   // Create from Firestore document
@@ -75,13 +85,16 @@ class Favourite {
       phoneNumber: data['phoneNumber'],
       website: data['website'],
       isOpen: data['isOpen'],
-      // New fields
+      // Existing fields
       isVegetarianAvailable: data['isVegetarianAvailable'] ?? false,
       isNonVegetarianAvailable: data['isNonVegetarianAvailable'] ?? false,
       userOpeningTime: _timeFromMinutes(data['userOpeningTime']),
       userClosingTime: _timeFromMinutes(data['userClosingTime']),
       timingNotes: data['timingNotes'],
       tags: List<String>.from(data['tags'] ?? []),
+      // New fields
+      placeCategory: data['placeCategory'],
+      foodPlaceType: data['foodPlaceType'],
     );
   }
 
@@ -115,13 +128,16 @@ class Favourite {
       'phoneNumber': phoneNumber,
       'website': website,
       'isOpen': isOpen,
-      // New fields
+      // Existing fields
       'isVegetarianAvailable': isVegetarianAvailable,
       'isNonVegetarianAvailable': isNonVegetarianAvailable,
       'userOpeningTime': _timeToMinutes(userOpeningTime),
       'userClosingTime': _timeToMinutes(userClosingTime),
       'timingNotes': timingNotes,
       'tags': tags,
+      // New fields
+      'placeCategory': placeCategory,
+      'foodPlaceType': foodPlaceType,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -151,6 +167,8 @@ class Favourite {
     TimeOfDay? userClosingTime,
     String? timingNotes,
     List<String>? tags,
+    String? placeCategory,
+    String? foodPlaceType,
   }) {
     return Favourite(
       id: id ?? this.id,
@@ -175,6 +193,8 @@ class Favourite {
       userClosingTime: userClosingTime ?? this.userClosingTime,
       timingNotes: timingNotes ?? this.timingNotes,
       tags: tags ?? this.tags,
+      placeCategory: placeCategory ?? this.placeCategory,
+      foodPlaceType: foodPlaceType ?? this.foodPlaceType,
     );
   }
 
@@ -219,53 +239,101 @@ class Favourite {
     return cuisineType!;
   }
 
-  // New helper methods for dietary options
-  String get dietaryOptionsDisplay {
-    if (isVegetarianAvailable && isNonVegetarianAvailable) {
-      return '🥬🍖 Veg & Non-Veg';
-    } else if (isVegetarianAvailable) {
-      return '🥬 Vegetarian';
-    } else if (isNonVegetarianAvailable) {
-      return '🍖 Non-Vegetarian';
+  // NEW HELPER METHODS for place categories
+
+  // Check if this is a food-related place
+  bool get isFoodPlace {
+    return placeCategory == 'Food & Dining';
+  }
+
+  // Get place category icon
+  IconData get placeCategoryIcon {
+    switch (placeCategory) {
+      case 'Food & Dining':
+        return Icons.restaurant_menu_rounded;
+      case 'Activities':
+        return Icons.local_activity_rounded;
+      case 'Shopping':
+        return Icons.shopping_bag_rounded;
+      case 'Accommodation':
+        return Icons.hotel_rounded;
+      case 'Entertainment':
+        return Icons.theater_comedy_rounded;
+      default:
+        return Icons.place_rounded;
     }
-    return '';
+  }
+
+  // Get place category color
+  Color get placeCategoryColor {
+    switch (placeCategory) {
+      case 'Food & Dining':
+        return const Color(0xFFFF6B35);
+      case 'Activities':
+        return const Color(0xFF2196F3);
+      case 'Shopping':
+        return const Color(0xFF4CAF50);
+      case 'Accommodation':
+        return const Color(0xFF9C27B0);
+      case 'Entertainment':
+        return const Color(0xFFE91E63);
+      default:
+        return const Color(0xFF607D8B);
+    }
+  }
+
+  // Get food place type emoji
+  String get foodPlaceTypeEmoji {
+    switch (foodPlaceType) {
+      case 'Restaurant':
+        return '🍽️';
+      case 'Cafe':
+        return '☕';
+      case 'Pub/Bar':
+        return '🍺';
+      case 'Fast Food':
+        return '🍕';
+      case 'Dessert/Sweets':
+        return '🍦';
+      case 'Street Food':
+        return '🥘';
+      case 'Specialty':
+        return '🍱';
+      default:
+        return '❓';
+    }
+  }
+
+  // Get place name (backward compatibility)
+  String get placeName => restaurantName;
+
+  // Get place image URL (backward compatibility)
+  String? get placeImageUrl => restaurantImageUrl;
+
+  // NEW HELPER METHODS for missing getters
+
+  // Get dietary options display
+  String get dietaryOptionsDisplay {
+    final options = <String>[];
+    if (isVegetarianAvailable) options.add('Vegetarian');
+    if (isNonVegetarianAvailable) options.add('Non-Vegetarian');
+    return options.join(', ');
   }
 
   // Get user timing display
   String get userTimingDisplay {
-    if (userOpeningTime == null || userClosingTime == null) return '';
+    if (userOpeningTime == null && userClosingTime == null) return '';
     
-    final formatter = DateFormat('h:mm a');
-    final opening = DateTime(2000, 1, 1, userOpeningTime!.hour, userOpeningTime!.minute);
-    final closing = DateTime(2000, 1, 1, userClosingTime!.hour, userClosingTime!.minute);
+    final opening = userOpeningTime != null ? _formatTimeOfDay(userOpeningTime!) : 'Unknown';
+    final closing = userClosingTime != null ? _formatTimeOfDay(userClosingTime!) : 'Unknown';
     
-    return '${formatter.format(opening)} - ${formatter.format(closing)}';
+    return '$opening - $closing';
   }
 
-  // Check if currently in user's preferred timing
-  bool get isInUserTiming {
-    if (userOpeningTime == null || userClosingTime == null) return false;
-    
-    final now = TimeOfDay.now();
-    final nowMinutes = now.hour * 60 + now.minute;
-    final openMinutes = userOpeningTime!.hour * 60 + userOpeningTime!.minute;
-    final closeMinutes = userClosingTime!.hour * 60 + userClosingTime!.minute;
-    
-    if (closeMinutes > openMinutes) {
-      // Same day (e.g., 9 AM - 10 PM)
-      return nowMinutes >= openMinutes && nowMinutes <= closeMinutes;
-    } else {
-      // Crosses midnight (e.g., 10 PM - 2 AM)
-      return nowMinutes >= openMinutes || nowMinutes <= closeMinutes;
-    }
-  }
-
-  // Get tags display (first 3 tags)
-  String get tagsPreview {
-    if (tags.isEmpty) return '';
-    if (tags.length <= 3) {
-      return tags.join(' • ');
-    }
-    return '${tags.take(3).join(' • ')} +${tags.length - 3}';
+  // Helper method to format TimeOfDay
+  static String _formatTimeOfDay(TimeOfDay time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }

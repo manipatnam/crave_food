@@ -4,9 +4,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/favourites_provider.dart';
 import 'favourites_screen.dart';
-import 'search_screen.dart'; // This imports SearchScreen
-import 'home_screen.dart'; // This imports SearchPage wrapper
+import 'search_screen.dart';
+import 'home_screen.dart';
+import 'add_favourite_screen.dart';
+import '../models/favourite_model.dart';
 
 class EnhancedHomeScreen extends StatefulWidget {
   const EnhancedHomeScreen({super.key});
@@ -24,7 +27,7 @@ class _EnhancedHomeScreenState extends State<EnhancedHomeScreen>
 
   final List<Widget> _pages = [
     const EnhancedHomePage(),
-    const SearchPage(), // Keep your existing SearchPage wrapper
+    const SearchPage(),
     const FavouritesScreen(),
     const EnhancedProfilePage(),
   ];
@@ -176,6 +179,10 @@ class _EnhancedHomePageState extends State<EnhancedHomePage>
     super.initState();
     _initializeAnimations();
     _startAnimations();
+    // Load favourites when home screen loads
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<FavouritesProvider>(context, listen: false).loadFavourites();
+    });
   }
 
   void _initializeAnimations() {
@@ -255,7 +262,7 @@ class _EnhancedHomePageState extends State<EnhancedHomePage>
               ),
             ),
             
-            // Featured Restaurants Section
+            // Featured Places Section (from Past Favourites)
             SliverToBoxAdapter(
               child: FadeTransition(
                 opacity: _cardsAnimation,
@@ -322,7 +329,7 @@ class _EnhancedHomePageState extends State<EnhancedHomePage>
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'What are you craving today?',
+                      'What do you want to try out today?',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: Colors.white.withOpacity(0.8),
                       ),
@@ -336,7 +343,7 @@ class _EnhancedHomePageState extends State<EnhancedHomePage>
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.restaurant_menu_rounded,
                   color: Colors.white,
                   size: 32,
@@ -366,24 +373,32 @@ class _EnhancedHomePageState extends State<EnhancedHomePage>
             children: [
               Expanded(
                 child: _buildActionCard(
-                  icon: Icons.add_circle_rounded,
-                  title: 'Add Favourite',
-                  subtitle: 'Save a new spot',
-                  color: Theme.of(context).colorScheme.secondary,
-                  onTap: () {
-                    // Navigate to add favourite
+                  'Add Favourite',
+                  'Save a new place',
+                  Icons.add_rounded,
+                  Theme.of(context).colorScheme.primary,
+                  () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const AddFavouriteScreen(),
+                      ),
+                    );
                   },
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: _buildActionCard(
-                  icon: Icons.map_rounded,
-                  title: 'Explore',
-                  subtitle: 'Find nearby places',
-                  color: Theme.of(context).colorScheme.tertiary,
-                  onTap: () {
-                    // Navigate to search/map
+                  'Explore',
+                  'Find new places',
+                  Icons.explore_rounded,
+                  Theme.of(context).colorScheme.secondary,
+                  () {
+                    // Navigate to search screen by changing the bottom nav
+                    if (context.findAncestorStateOfType<_EnhancedHomeScreenState>() != null) {
+                      context.findAncestorStateOfType<_EnhancedHomeScreenState>()!._onItemTapped(1);
+                    }
                   },
                 ),
               ),
@@ -394,13 +409,7 @@ class _EnhancedHomePageState extends State<EnhancedHomePage>
     );
   }
 
-  Widget _buildActionCard({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
+  Widget _buildActionCard(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -464,162 +473,177 @@ class _EnhancedHomePageState extends State<EnhancedHomePage>
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              TextButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.arrow_forward_rounded, size: 16),
-                label: const Text('See all'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.primary,
-                ),
+              Consumer<FavouritesProvider>(
+                builder: (context, favProvider, child) {
+                  // Only show "See all" if there are favourites
+                  if (favProvider.favourites.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  
+                  return TextButton.icon(
+                    onPressed: () {
+                      // Navigate to favourites screen
+                      if (context.findAncestorStateOfType<_EnhancedHomeScreenState>() != null) {
+                        context.findAncestorStateOfType<_EnhancedHomeScreenState>()!._onItemTapped(2);
+                      }
+                    },
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+                    label: const Text('See all'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Theme.of(context).colorScheme.primary,
+                    ),
+                  );
+                },
               ),
             ],
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            height: 200,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: 5,
-              itemBuilder: (context, index) => _buildFeaturedCard(index),
-            ),
+          Consumer<FavouritesProvider>(
+            builder: (context, favProvider, child) {
+              if (favProvider.isLoading) {
+                return const SizedBox(
+                  height: 200,
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              if (favProvider.favourites.isEmpty) {
+                return _buildEmptyFeaturedState();
+              }
+
+              // Show up to 5 recent favourites
+              final featuredFavourites = favProvider.favourites.take(5).toList();
+
+              return SizedBox(
+                height: 200,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: featuredFavourites.length,
+                  itemBuilder: (context, index) {
+                    final favourite = featuredFavourites[index];
+                    return Container(
+                      width: 160,
+                      margin: EdgeInsets.only(
+                        right: index < featuredFavourites.length - 1 ? 16 : 0,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Icon(
+                                Icons.restaurant_rounded,
+                                color: Theme.of(context).colorScheme.primary,
+                                size: 24,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              favourite.restaurantName,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              favourite.foodNames.isNotEmpty 
+                                  ? favourite.foodNames.first 
+                                  : 'Great food',
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const Spacer(),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.star_rounded,
+                                  color: Colors.amber,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '${favourite.rating ?? 4.5}',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFeaturedCard(int index) {
-    final restaurants = [
-      {
-        'name': 'Pizza Palace',
-        'cuisine': 'Italian',
-        'rating': 4.5,
-        'time': '25-30 min',
-        'image': Icons.local_pizza_rounded,
-        'color': Colors.red,
-      },
-      {
-        'name': 'Burger House',
-        'cuisine': 'American',
-        'rating': 4.2,
-        'time': '20-25 min',
-        'image': Icons.lunch_dining_rounded,
-        'color': Colors.orange,
-      },
-      {
-        'name': 'Sushi Bar',
-        'cuisine': 'Japanese',
-        'rating': 4.8,
-        'time': '30-35 min',
-        'image': Icons.rice_bowl_rounded,
-        'color': Colors.green,
-      },
-      {
-        'name': 'Taco Fiesta',
-        'cuisine': 'Mexican',
-        'rating': 4.3,
-        'time': '15-20 min',
-        'image': Icons.restaurant_rounded,
-        'color': Colors.amber,
-      },
-      {
-        'name': 'Noodle House',
-        'cuisine': 'Asian',
-        'rating': 4.6,
-        'time': '25-30 min',
-        'image': Icons.ramen_dining_rounded,
-        'color': Colors.purple,
-      },
-    ];
-
-    final restaurant = restaurants[index];
-
+  Widget _buildEmptyFeaturedState() {
     return Container(
-      width: 160,
-      margin: const EdgeInsets.only(right: 16),
+      height: 200,
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          style: BorderStyle.solid,
+        ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            height: 100,
-            width: double.infinity,
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  (restaurant['color'] as Color).withOpacity(0.8),
-                  (restaurant['color'] as Color).withOpacity(0.6),
-                ],
-              ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20),
-                topRight: Radius.circular(20),
-              ),
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
-              restaurant['image'] as IconData,
-              size: 40,
-              color: Colors.white,
+              Icons.restaurant_menu_rounded,
+              size: 32,
+              color: Theme.of(context).colorScheme.primary,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  restaurant['name'] as String,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  restaurant['cuisine'] as String,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.star_rounded,
-                      size: 16,
-                      color: Colors.amber[600],
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      restaurant['rating'].toString(),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    Text(
-                      restaurant['time'] as String,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+          const SizedBox(height: 16),
+          Text(
+            'No favourites yet',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Add your first favourite place to see it here',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -628,7 +652,7 @@ class _EnhancedHomePageState extends State<EnhancedHomePage>
 
   Widget _buildRecentActivity() {
     return Container(
-      margin: const EdgeInsets.all(20),
+      margin: const EdgeInsets.only(top: 32, left: 20, right: 20, bottom: 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -639,93 +663,144 @@ class _EnhancedHomePageState extends State<EnhancedHomePage>
             ),
           ),
           const SizedBox(height: 16),
-          ...List.generate(3, (index) => _buildActivityItem(index)),
+          Consumer<FavouritesProvider>(
+            builder: (context, favProvider, child) {
+              if (favProvider.isLoading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (favProvider.favourites.isEmpty) {
+                return _buildEmptyActivityState();
+              }
+
+              // Show the 3 most recent favourites
+              final recentFavourites = favProvider.favourites.take(3).toList();
+
+              return Column(
+                children: recentFavourites.map((favourite) {
+                  final timeAgo = _getTimeAgo(favourite.dateAdded);
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.add_rounded,
+                            color: Theme.of(context).colorScheme.primary,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Added ${favourite.restaurantName}',
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                timeAgo,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.arrow_forward_ios_rounded,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              );
+            },
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildActivityItem(int index) {
-    final activities = [
-      {
-        'action': 'Added to favourites',
-        'place': 'McDonald\'s Downtown',
-        'time': '2 hours ago',
-        'icon': Icons.favorite_rounded,
-        'color': Colors.red,
-      },
-      {
-        'action': 'Searched for',
-        'place': 'Pizza places nearby',
-        'time': '5 hours ago',
-        'icon': Icons.search_rounded,
-        'color': Colors.blue,
-      },
-      {
-        'action': 'Updated notes for',
-        'place': 'Starbucks Coffee',
-        'time': '1 day ago',
-        'icon': Icons.edit_rounded,
-        'color': Colors.green,
-      },
-    ];
-
-    final activity = activities[index];
-
+  Widget _buildEmptyActivityState() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+          style: BorderStyle.solid,
         ),
       ),
-      child: Row(
+      child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: (activity['color'] as Color).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Icon(
-              activity['icon'] as IconData,
-              color: activity['color'] as Color,
-              size: 20,
+              Icons.timeline_rounded,
+              size: 32,
+              color: Theme.of(context).colorScheme.secondary,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                RichText(
-                  text: TextSpan(
-                    style: Theme.of(context).textTheme.bodyMedium,
-                    children: [
-                      TextSpan(text: activity['action'] as String),
-                      TextSpan(
-                        text: ' ${activity['place']}',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  activity['time'] as String,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  ),
-                ),
-              ],
+          const SizedBox(height: 16),
+          Text(
+            'No recent activity',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Start adding favourites to see your activity here',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
+  }
+
+  String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 7) {
+      return '${difference.inDays} days ago';
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays == 1 ? '' : 's'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours == 1 ? '' : 's'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes == 1 ? '' : 's'} ago';
+    } else {
+      return 'Just now';
+    }
   }
 }
 
@@ -805,9 +880,9 @@ class EnhancedProfilePage extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                authProvider.user?.email ?? '',
+                authProvider.user?.email ?? 'No email',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
                 ),
               ),
             ],
@@ -818,50 +893,44 @@ class EnhancedProfilePage extends StatelessWidget {
   }
 
   Widget _buildStatsSection(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatCard(
-            context,
-            icon: Icons.favorite_rounded,
-            value: '12',
-            label: 'Favourites',
-            color: Colors.red,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            context,
-            icon: Icons.location_on_rounded,
-            value: '8',
-            label: 'Places Visited',
-            color: Colors.blue,
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _buildStatCard(
-            context,
-            icon: Icons.star_rounded,
-            value: '4.8',
-            label: 'Avg Rating',
-            color: Colors.amber,
-          ),
-        ),
-      ],
+    return Consumer<FavouritesProvider>(
+      builder: (context, favProvider, child) {
+        return Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                context,
+                '${favProvider.favourites.length}',
+                'Total Favourites',
+                Icons.favorite_rounded,
+                Theme.of(context).colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildStatCard(
+                context,
+                '${_getThisMonthCount(favProvider.favourites)}',
+                'This Month',
+                Icons.calendar_month_rounded,
+                Theme.of(context).colorScheme.secondary,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildStatCard(
-    BuildContext context, {
-    required IconData icon,
-    required String value,
-    required String label,
-    required Color color,
-  }) {
+  int _getThisMonthCount(List<Favourite> favourites) {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    return favourites.where((fav) => fav.dateAdded.isAfter(startOfMonth)).length;
+  }
+
+  Widget _buildStatCard(BuildContext context, String value, String label, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
@@ -977,7 +1046,7 @@ class EnhancedProfilePage extends StatelessWidget {
         subtitle: Text(
           item['subtitle'],
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
           ),
         ),
         trailing: Icon(
@@ -990,29 +1059,41 @@ class EnhancedProfilePage extends StatelessWidget {
   }
 
   Widget _buildLogoutButton(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: double.infinity,
-      margin: const EdgeInsets.only(top: 16),
       child: ElevatedButton.icon(
         onPressed: () {
-          Provider.of<AuthProvider>(context, listen: false).signOut();
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Logout'),
+                content: const Text('Are you sure you want to logout?'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      Provider.of<AuthProvider>(context, listen: false).signOut();
+                    },
+                    child: const Text('Logout'),
+                  ),
+                ],
+              );
+            },
+          );
         },
+        icon: const Icon(Icons.logout_rounded),
+        label: const Text('Logout'),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red.shade50,
-          foregroundColor: Colors.red,
-          elevation: 0,
+          backgroundColor: Theme.of(context).colorScheme.error,
+          foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.red.withOpacity(0.2)),
-          ),
-        ),
-        icon: const Icon(Icons.logout_rounded),
-        label: const Text(
-          'Sign Out',
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
           ),
         ),
       ),

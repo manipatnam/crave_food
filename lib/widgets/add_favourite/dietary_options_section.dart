@@ -1,3 +1,6 @@
+// Updated Dietary Options Section (Optional)
+// lib/widgets/add_favourite/dietary_options_section.dart
+
 import 'package:flutter/material.dart';
 
 class DietaryOptionsSection extends StatelessWidget {
@@ -56,11 +59,27 @@ class DietaryOptionsSection extends StatelessWidget {
                   color: Colors.black87,
                 ),
               ),
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Optional',
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            'What food options are available at this restaurant?',
+            'What food options are available at this place? (Skip if not applicable)',
             style: TextStyle(
               fontSize: 12,
               color: Colors.grey[600],
@@ -201,29 +220,30 @@ class DietaryOptionsSection extends StatelessWidget {
             ),
           ),
           
-          // Validation message
-          if (!isVegetarianAvailable && !isNonVegetarianAvailable)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.info_outline,
-                    color: Colors.orange,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Please select at least one dietary option',
+          // Optional info note (removed validation warning)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.info_outline,
+                  color: Colors.blue,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'These options help other users filter places based on dietary preferences',
                     style: TextStyle(
-                      color: Colors.orange[700],
+                      color: Colors.blue[700],
                       fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
         ],
       ),
     );

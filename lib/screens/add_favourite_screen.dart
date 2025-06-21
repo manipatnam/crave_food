@@ -1,3 +1,6 @@
+// Updated Add Favourite Screen with Place Categories
+// lib/screens/add_favourite_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,8 +11,10 @@ import '../services/clipboard_service.dart';
 import '../models/place_model.dart';
 import '../models/favourite_model.dart';
 import '../widgets/add_favourite/clipboard_detector.dart';
-import '../widgets/add_favourite/restaurant_search_section.dart';
+import '../widgets/add_favourite/place_search_section.dart';
 import '../widgets/add_favourite/selected_place_card.dart';
+import '../widgets/add_favourite/place_category_section.dart';
+import '../widgets/add_favourite/food_place_type_section.dart';
 import '../widgets/add_favourite/food_items_section.dart';
 import '../widgets/add_favourite/social_urls_section.dart';
 import '../widgets/add_favourite/dietary_options_section.dart';
@@ -17,6 +22,38 @@ import '../widgets/add_favourite/timing_information_section.dart';
 import '../widgets/add_favourite/tags_section.dart';
 import '../widgets/add_favourite/notes_section.dart';
 import '../widgets/add_favourite/save_button.dart';
+
+// Place Categories
+enum PlaceCategory {
+  foodDining('Food & Dining', Icons.restaurant_menu_rounded, Color(0xFFFF6B35)),
+  activities('Activities', Icons.local_activity_rounded, Color(0xFF2196F3)),
+  shopping('Shopping', Icons.shopping_bag_rounded, Color(0xFF4CAF50)),
+  accommodation('Accommodation', Icons.hotel_rounded, Color(0xFF9C27B0)),
+  entertainment('Entertainment', Icons.theater_comedy_rounded, Color(0xFFE91E63)),
+  other('Other', Icons.place_rounded, Color(0xFF607D8B));
+
+  const PlaceCategory(this.label, this.icon, this.color);
+  final String label;
+  final IconData icon;
+  final Color color;
+}
+
+// Food Place Types (sub-categories for Food & Dining)
+enum FoodPlaceType {
+  restaurant('Restaurant', Icons.restaurant_rounded, '🍽️'),
+  cafe('Cafe', Icons.local_cafe_rounded, '☕'),
+  pubBar('Pub/Bar', Icons.local_bar_rounded, '🍺'),
+  fastFood('Fast Food', Icons.fastfood_rounded, '🍕'),
+  dessert('Dessert/Sweets', Icons.cake_rounded, '🍦'),
+  streetFood('Street Food', Icons.food_bank_rounded, '🥘'),
+  specialty('Specialty', Icons.restaurant_menu_rounded, '🍱'),
+  other('Other Food Place', Icons.more_horiz_rounded, '❓');
+
+  const FoodPlaceType(this.label, this.icon, this.emoji);
+  final String label;
+  final IconData icon;
+  final String emoji;
+}
 
 class AddFavouriteScreen extends StatefulWidget {
   final PlaceModel? prefilledPlace;
@@ -30,7 +67,7 @@ class AddFavouriteScreen extends StatefulWidget {
 class _AddFavouriteScreenState extends State<AddFavouriteScreen>
     with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _restaurantController = TextEditingController();
+  final _placeController = TextEditingController(); // Changed from _restaurantController
   final _foodController = TextEditingController();
   final _socialController = TextEditingController();
   final _notesController = TextEditingController();
@@ -42,13 +79,18 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
   List<PlaceModel> _searchResults = [];
   PlaceModel? _selectedPlace;
   PlaceModel? _prefilledPlace;
+  
+  // Category and Type Selection
+  PlaceCategory? _selectedCategory;
+  FoodPlaceType? _selectedFoodPlaceType;
+  
   List<String> _foodItems = [];
   List<String> _socialUrls = [];
   List<String> _tags = [];
   bool _isSearching = false;
   bool _isAdding = false;
   
-  // New fields
+  // Form fields
   bool _isVegetarianAvailable = false;
   bool _isNonVegetarianAvailable = false;
   TimeOfDay? _userOpeningTime;
@@ -69,33 +111,34 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
       print('🎯 Pre-filling data from search screen: ${widget.prefilledPlace!.name}');
       _prefilledPlace = widget.prefilledPlace;
       _selectedPlace = widget.prefilledPlace;
-      _restaurantController.text = widget.prefilledPlace!.name;
+      _placeController.text = widget.prefilledPlace!.name;
       
-      // Show success message that restaurant is pre-filled
+      // Show success message that place is pre-filled
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showSnackBar('Restaurant details loaded from search!');
+        _showSnackBar('Place details loaded from search!');
       });
     }
   }
 
   void _initializeAnimations() {
     _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
     _slideController = AnimationController(
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    
+
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
     );
     _slideAnimation = Tween<Offset>(
       begin: const Offset(0, 0.3),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOutBack));
-    
+    ).animate(CurvedAnimation(parent: _slideController, curve: Curves.easeOut));
+
+    // Start animations
     _fadeController.forward();
     _slideController.forward();
   }
@@ -104,7 +147,7 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
   void dispose() {
     _fadeController.dispose();
     _slideController.dispose();
-    _restaurantController.dispose();
+    _placeController.dispose();
     _foodController.dispose();
     _socialController.dispose();
     _notesController.dispose();
@@ -113,61 +156,101 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
     super.dispose();
   }
 
-  Future<void> _searchRestaurants(String query) async {
-    // If we have a prefilled place and user hasn't changed the text, don't search
-    if (widget.prefilledPlace != null && query == widget.prefilledPlace!.name) {
+  // Search for places (updated from restaurant search)
+  Future<void> _searchPlaces(String query) async {
+    // Don't search if query is empty or too short
+    if (query.trim().isEmpty || query.trim().length < 2) {
       setState(() {
         _searchResults = [];
+        _isSearching = false;
       });
       return;
     }
 
-    if (query.length < 2) {
+    // Don't search if this is the selected place name
+    if (_selectedPlace != null && query.trim() == _selectedPlace!.name) {
       setState(() {
         _searchResults = [];
+        _isSearching = false;
       });
       return;
     }
 
     setState(() {
       _isSearching = true;
+      _searchResults = []; // Clear previous results
     });
 
     try {
-      final results = await _placesService.searchPlaces(query);
-      if (mounted) {
+      print('🔍 Searching for places: $query');
+      final results = await _placesService.searchPlaces(query.trim());
+      
+      // Only update if we're still searching for the same query
+      if (mounted && _placeController.text.trim() == query.trim()) {
         setState(() {
           _searchResults = results;
           _isSearching = false;
         });
+        
+        print('✅ Found ${results.length} places');
       }
     } catch (e) {
-      print('❌ Search error: $e');
+      print('❌ Error searching places: $e');
       if (mounted) {
         setState(() {
           _isSearching = false;
+          _searchResults = [];
         });
-        _showSnackBar('Error searching: $e', isError: true);
+        _showSnackBar('Error searching places: $e', isError: true);
       }
     }
   }
 
   void _selectPlace(PlaceModel place) {
-    print('📍 Selected place: ${place.name}');
     setState(() {
       _selectedPlace = place;
-      _restaurantController.text = place.name;
-      _searchResults = [];
+      _placeController.text = place.name;
+      _searchResults = []; // Clear search results immediately
     });
+    
+    print('✅ Selected place: ${place.name}');
+    _showSnackBar('Place selected: ${place.name}');
   }
 
+  // Category selection
+  void _selectCategory(PlaceCategory category) {
+    setState(() {
+      _selectedCategory = category;
+      // Reset food place type if changing away from food & dining
+      if (category != PlaceCategory.foodDining) {
+        _selectedFoodPlaceType = null;
+        // Clear food-related data
+        _foodItems.clear();
+        _isVegetarianAvailable = false;
+        _isNonVegetarianAvailable = false;
+      }
+    });
+    
+    print('📂 Selected category: ${category.label}');
+  }
+
+  void _selectFoodPlaceType(FoodPlaceType type) {
+    setState(() {
+      _selectedFoodPlaceType = type;
+    });
+    
+    print('🍽️ Selected food place type: ${type.label}');
+  }
+
+  // Food items management
   void _addFoodItem() {
-    if (_foodController.text.trim().isNotEmpty) {
+    final item = _foodController.text.trim();
+    if (item.isNotEmpty && !_foodItems.contains(item)) {
       setState(() {
-        _foodItems.add(_foodController.text.trim());
+        _foodItems.add(item);
         _foodController.clear();
       });
-      print('🍕 Added food item. Total: ${_foodItems.length}');
+      print('➕ Added food item: $item');
     }
   }
 
@@ -175,17 +258,30 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
     setState(() {
       _foodItems.removeAt(index);
     });
+    print('➖ Removed food item at index: $index');
   }
 
+  // Social URLs management
   void _addSocialUrl() {
     final url = _socialController.text.trim();
-    if (url.isNotEmpty && _isValidUrl(url)) {
+    if (url.isNotEmpty && !_socialUrls.contains(url)) {
       setState(() {
         _socialUrls.add(url);
         _socialController.clear();
       });
+      print('🔗 Added social URL: $url');
+    }
+  }
+
+  void _addSocialUrlFromClipboard(String url) {
+    if (!_socialUrls.contains(url)) {
+      setState(() {
+        _socialUrls.add(url);
+      });
+      _showSnackBar('Social media link added from clipboard!');
+      print('📋 Added social URL from clipboard: $url');
     } else {
-      _showSnackBar('Please enter a valid URL', isError: true);
+      _showSnackBar('This link is already added', isError: true);
     }
   }
 
@@ -193,17 +289,18 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
     setState(() {
       _socialUrls.removeAt(index);
     });
+    print('🗑️ Removed social URL at index: $index');
   }
 
+  // Tags management
   void _addTag() {
-    final tag = _tagController.text.trim().toLowerCase();
+    final tag = _tagController.text.trim();
     if (tag.isNotEmpty && !_tags.contains(tag)) {
       setState(() {
         _tags.add(tag);
         _tagController.clear();
       });
-    } else if (_tags.contains(tag)) {
-      _showSnackBar('Tag already added', isError: true);
+      print('🏷️ Added tag: $tag');
     }
   }
 
@@ -211,25 +308,92 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
     setState(() {
       _tags.removeAt(index);
     });
+    print('🗑️ Removed tag at index: $index');
   }
 
-  void _addSocialUrlFromClipboard(String url) {
+  // Save favourite
+  Future<void> _saveFavourite() async {
+    if (!_formKey.currentState!.validate()) {
+      _showSnackBar('Please fill in all required fields', isError: true);
+      return;
+    }
+
+    if (_selectedPlace == null) {
+      _showSnackBar('Please select a place', isError: true);
+      return;
+    }
+
+    if (_selectedCategory == null) {
+      _showSnackBar('Please select a place category', isError: true);
+      return;
+    }
+
+    // If food & dining category, food place type is required
+    if (_selectedCategory == PlaceCategory.foodDining && _selectedFoodPlaceType == null) {
+      _showSnackBar('Please select a food place type', isError: true);
+      return;
+    }
+
+    // REMOVED: Dietary options validation - now optional
+    // REMOVED: Food items validation - now optional
+
     setState(() {
-      if (!_socialUrls.contains(url)) {
-        _socialUrls.add(url);
-        _showSnackBar('${ClipboardService.getPlatformName(url)} link added!');
-      } else {
-        _showSnackBar('This link is already added');
-      }
+      _isAdding = true;
     });
-  }
 
-  bool _isValidUrl(String url) {
     try {
-      final uri = Uri.parse(url);
-      return uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https');
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) {
+        throw 'User not authenticated';
+      }
+
+      // Create favourite with new fields
+      final favourite = Favourite(
+        id: '', // Will be set by Firestore
+        restaurantName: _selectedPlace!.name, // Keep this field name for compatibility
+        googlePlaceId: _selectedPlace!.placeId,
+        coordinates: _selectedPlace!.geoPoint,
+        foodNames: _foodItems, // Will be empty for non-food places
+        socialUrls: _socialUrls,
+        dateAdded: DateTime.now(),
+        userId: currentUser.uid,
+        userNotes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        restaurantImageUrl: _selectedPlace!.photoUrl,
+        rating: _selectedPlace!.rating,
+        priceLevel: _selectedPlace!.priceLevel,
+        cuisineType: _selectedPlace!.types?.join(', '),
+        phoneNumber: _selectedPlace!.phoneNumber,
+        website: _selectedPlace!.website,
+        isOpen: _selectedPlace!.isOpen,
+        // New category fields
+        isVegetarianAvailable: _isVegetarianAvailable,
+        isNonVegetarianAvailable: _isNonVegetarianAvailable,
+        userOpeningTime: _userOpeningTime,
+        userClosingTime: _userClosingTime,
+        timingNotes: _timingNotesController.text.trim().isEmpty ? null : _timingNotesController.text.trim(),
+        tags: [
+          ..._tags,
+          _selectedCategory!.label, // Add category as a tag
+          if (_selectedFoodPlaceType != null) _selectedFoodPlaceType!.label, // Add food type as tag
+        ],
+      );
+
+      final favouritesProvider = Provider.of<FavouritesProvider>(context, listen: false);
+      final success = await favouritesProvider.addFavourite(favourite);
+
+      if (success) {
+        _showSnackBar('Place added to favourites successfully!');
+        Navigator.pop(context, true);
+      } else {
+        throw 'Failed to add favourite';
+      }
     } catch (e) {
-      return false;
+      print('❌ Error saving favourite: $e');
+      _showSnackBar('Error saving favourite: $e', isError: true);
+    } finally {
+      setState(() {
+        _isAdding = false;
+      });
     }
   }
 
@@ -237,173 +401,45 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red : Colors.green,
+        backgroundColor: isError ? Theme.of(context).colorScheme.error : null,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
       ),
     );
   }
 
-  bool _validateForm() {
-    if (!_formKey.currentState!.validate()) {
-      return false;
-    }
-    
-    if (_selectedPlace == null) {
-      _showSnackBar('Please select a restaurant', isError: true);
-      return false;
-    }
-
-    if (_foodItems.isEmpty) {
-      _showSnackBar('Please add at least one food item', isError: true);
-      return false;
-    }
-
-    if (!_isVegetarianAvailable && !_isNonVegetarianAvailable) {
-      _showSnackBar('Please select at least one dietary option', isError: true);
-      return false;
-    }
-
-    return true;
-  }
-
-  Future<void> _saveFavourite() async {
-    print('💾 _saveFavourite called');
-    
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      print('❌ No authenticated user');
-      _showSnackBar('You must be logged in to add favourites', isError: true);
-      return;
-    }
-
-    if (!_validateForm()) {
-      return;
-    }
-
-    setState(() {
-      _isAdding = true;
-    });
-
-    try {
-      final favourite = Favourite(
-        id: '',
-        restaurantName: _selectedPlace!.name,
-        googlePlaceId: _selectedPlace!.placeId,
-        coordinates: _selectedPlace!.geoPoint,
-        foodNames: _foodItems,
-        socialUrls: _socialUrls,
-        dateAdded: DateTime.now(),
-        userId: currentUser.uid,
-        userNotes: _notesController.text.isNotEmpty ? _notesController.text : null,
-        restaurantImageUrl: _selectedPlace!.photoUrl,
-        rating: _selectedPlace!.rating,
-        priceLevel: _selectedPlace!.priceLevel,
-        cuisineType: _selectedPlace!.cuisineTypes,
-        phoneNumber: _selectedPlace!.phoneNumber,
-        website: _selectedPlace!.website,
-        isOpen: _selectedPlace!.isOpen,
-        // New fields
-        isVegetarianAvailable: _isVegetarianAvailable,
-        isNonVegetarianAvailable: _isNonVegetarianAvailable,
-        userOpeningTime: _userOpeningTime,
-        userClosingTime: _userClosingTime,
-        timingNotes: _timingNotesController.text.isNotEmpty ? _timingNotesController.text : null,
-        tags: _tags,
-      );
-
-      print('🔄 Calling favouritesProvider.addFavourite...');
-      
-      final favouritesProvider = Provider.of<FavouritesProvider>(context, listen: false);
-      
-      final success = await favouritesProvider.addFavourite(favourite)
-          .timeout(const Duration(seconds: 30));
-      
-      if (mounted) {
-        setState(() {
-          _isAdding = false;
-        });
-
-        if (success) {
-          print('✅ Favourite added successfully!');
-          _showSnackBar('Favourite added successfully!');
-          
-          await Future.delayed(const Duration(milliseconds: 1000));
-          
-          if (mounted) {
-            print('🔙 Navigating back to search screen');
-            Navigator.pop(context, true);
-          }
-        } else {
-          print('❌ Failed to add favourite');
-          final errorMessage = favouritesProvider.errorMessage ?? 'Failed to add favourite. Please try again.';
-          _showSnackBar(errorMessage, isError: true);
-        }
-      }
-    } on TimeoutException catch (timeoutError) {
-      print('⏰ Timeout error: $timeoutError');
-      
-      if (mounted) {
-        setState(() {
-          _isAdding = false;
-        });
-        
-        _showSnackBar('Request timed out. The favourite may have been added successfully.');
-        Navigator.pop(context, true);
-      }
-    } catch (e) {
-      print('❌ Exception in _saveFavourite: $e');
-      
-      if (mounted) {
-        setState(() {
-          _isAdding = false;
-        });
-        _showSnackBar('Error: $e', isError: true);
-      }
-    }
+  // Check if we should show food-related sections
+  bool get _shouldShowFoodSections {
+    return _selectedCategory == PlaceCategory.foodDining;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       body: CustomScrollView(
         slivers: [
-          // Custom App Bar with gradient
+          // App Bar
           SliverAppBar(
             expandedHeight: 120,
             floating: false,
             pinned: true,
-            backgroundColor: Colors.transparent,
-            flexibleSpace: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Theme.of(context).primaryColor,
-                    Theme.of(context).primaryColor.withOpacity(0.8),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            flexibleSpace: FlexibleSpaceBar(
+              title: Text(
+                widget.prefilledPlace != null ? 'Add to Favourites' : 'Add Favourite',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      offset: Offset(0, 1),
+                      blurRadius: 3,
+                      color: Colors.black26,
+                    ),
                   ],
                 ),
               ),
-              child: FlexibleSpaceBar(
-                title: Text(
-                  widget.prefilledPlace != null ? 'Add to Favourites' : 'Add Favourite',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    shadows: [
-                      Shadow(
-                        offset: const Offset(0, 1),
-                        blurRadius: 3,
-                        color: Colors.black.withOpacity(0.3),
-                      ),
-                    ],
-                  ),
-                ),
-                centerTitle: true,
-              ),
+              centerTitle: true,
             ),
             leading: IconButton(
               icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
@@ -430,14 +466,14 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
                             onSocialUrlDetected: _addSocialUrlFromClipboard,
                           ),
                         
-                        // Restaurant search section (only show if not prefilled)
+                        // Place search section (only show if not prefilled)
                         if (widget.prefilledPlace == null) ...[
-                          RestaurantSearchSection(
-                            controller: _restaurantController,
+                          PlaceSearchSection(
+                            controller: _placeController,
                             searchResults: _searchResults,
                             isSearching: _isSearching,
                             selectedPlace: _selectedPlace,
-                            onSearch: _searchRestaurants,
+                            onSearch: _searchPlaces,
                             onSelectPlace: _selectPlace,
                           ),
                           const SizedBox(height: 24),
@@ -445,157 +481,72 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
                         
                         // Selected place card (always show if we have a selected place)
                         if (_selectedPlace != null) ...[
-                          // Only show the card if it's not prefilled, or show without clear button if prefilled
-                          widget.prefilledPlace != null 
-                            ? Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Theme.of(context).primaryColor.withOpacity(0.1),
-                                      Theme.of(context).primaryColor.withOpacity(0.05),
-                                    ],
-                                  ),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: Theme.of(context).primaryColor.withOpacity(0.3),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Container(
-                                        width: 80,
-                                        height: 80,
-                                        color: Colors.grey[200],
-                                        child: _selectedPlace!.photoUrl != null
-                                            ? Image.network(
-                                                _selectedPlace!.photoUrl!,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error, stackTrace) => Icon(
-                                                  Icons.restaurant,
-                                                  size: 40,
-                                                  color: Theme.of(context).primaryColor,
-                                                ),
-                                              )
-                                            : Icon(
-                                                Icons.restaurant,
-                                                size: 40,
-                                                color: Theme.of(context).primaryColor,
-                                              ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.check_circle,
-                                                color: Theme.of(context).primaryColor,
-                                                size: 20,
-                                              ),
-                                              const SizedBox(width: 6),
-                                              const Text(
-                                                'From Search',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: Colors.green,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            _selectedPlace!.name,
-                                            style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black87,
-                                            ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 4),
-                                          if (_selectedPlace!.rating != null || _selectedPlace!.cuisineTypes.isNotEmpty)
-                                            Row(
-                                              children: [
-                                                if (_selectedPlace!.rating != null) ...[
-                                                  Icon(Icons.star, color: Colors.amber, size: 14),
-                                                  const SizedBox(width: 2),
-                                                  Text(
-                                                    _selectedPlace!.rating!.toStringAsFixed(1),
-                                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                                                  ),
-                                                ],
-                                                if (_selectedPlace!.rating != null && _selectedPlace!.cuisineTypes.isNotEmpty)
-                                                  const Text(' • ', style: TextStyle(fontSize: 12)),
-                                                if (_selectedPlace!.cuisineTypes.isNotEmpty)
-                                                  Expanded(
-                                                    child: Text(
-                                                      _selectedPlace!.cuisineTypes,
-                                                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                                                      maxLines: 1,
-                                                      overflow: TextOverflow.ellipsis,
-                                                    ),
-                                                  ),
-                                              ],
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : SelectedPlaceCard(
-                                selectedPlace: _selectedPlace,
-                                onClear: () {
-                                  setState(() {
-                                    _selectedPlace = null;
-                                    _restaurantController.clear();
-                                  });
-                                },
-                              ),
+                          SelectedPlaceCard(
+                            selectedPlace: _selectedPlace!, // Fixed: use selectedPlace parameter name
+                            onClear: () {
+                              setState(() {
+                                _selectedPlace = null;
+                                _placeController.clear();
+                                _selectedCategory = null;
+                                _selectedFoodPlaceType = null;
+                              });
+                            },
+                          ),
                           const SizedBox(height: 24),
                         ],
                         
-                        FoodItemsSection(
-                          controller: _foodController,
-                          foodItems: _foodItems,
-                          onAddItem: _addFoodItem,
-                          onRemoveItem: _removeFoodItem,
-                        ),
+                        // Place Category Selection (show after place is selected)
+                        if (_selectedPlace != null) ...[
+                          PlaceCategorySection(
+                            selectedCategory: _selectedCategory,
+                            onCategorySelected: _selectCategory,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                         
-                        const SizedBox(height: 24),
+                        // Food Place Type Selection (show if Food & Dining is selected)
+                        if (_selectedCategory == PlaceCategory.foodDining) ...[
+                          FoodPlaceTypeSection(
+                            selectedType: _selectedFoodPlaceType,
+                            onTypeSelected: _selectFoodPlaceType,
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                         
-                        // NEW: Dietary Options Section
-                        DietaryOptionsSection(
-                          isVegetarianAvailable: _isVegetarianAvailable,
-                          isNonVegetarianAvailable: _isNonVegetarianAvailable,
-                          onVegetarianChanged: (value) {
-                            setState(() {
-                              _isVegetarianAvailable = value ?? false;
-                            });
-                          },
-                          onNonVegetarianChanged: (value) {
-                            setState(() {
-                              _isNonVegetarianAvailable = value ?? false;
-                            });
-                          },
-                        ),
+                        // Food Items Section (only for food & dining places)
+                        if (_shouldShowFoodSections && _selectedFoodPlaceType != null) ...[
+                          FoodItemsSection(
+                            controller: _foodController,
+                            foodItems: _foodItems,
+                            onAddItem: _addFoodItem,
+                            onRemoveItem: _removeFoodItem,
+                            // Note: removed isOptional and placeholderText - using existing widget signature
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                         
-                        const SizedBox(height: 24),
+                        // Dietary Options Section (only for food & dining places)
+                        if (_shouldShowFoodSections && _selectedFoodPlaceType != null) ...[
+                          DietaryOptionsSection(
+                            isVegetarianAvailable: _isVegetarianAvailable,
+                            isNonVegetarianAvailable: _isNonVegetarianAvailable,
+                            onVegetarianChanged: (value) {
+                              setState(() {
+                                _isVegetarianAvailable = value ?? false; // Fixed: handle nullable bool
+                              });
+                            },
+                            onNonVegetarianChanged: (value) {
+                              setState(() {
+                                _isNonVegetarianAvailable = value ?? false; // Fixed: handle nullable bool
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 24),
+                        ],
                         
-                        // NEW: Timing Information Section
+                        // Always show these sections for all place types
                         TimingInformationSection(
-                          selectedPlace: _selectedPlace,
+                          selectedPlace: _selectedPlace, // Fixed: add required selectedPlace parameter
                           userOpeningTime: _userOpeningTime,
                           userClosingTime: _userClosingTime,
                           timingNotesController: _timingNotesController,
@@ -613,7 +564,6 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
                         
                         const SizedBox(height: 24),
                         
-                        // NEW: Tags Section
                         TagsSection(
                           controller: _tagController,
                           tags: _tags,
@@ -649,6 +599,7 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
                         SaveButton(
                           isAdding: _isAdding,
                           onSave: _saveFavourite,
+                          // Note: removed canSave parameter - using existing widget signature
                         ),
                         
                         const SizedBox(height: 20),
@@ -662,5 +613,28 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
         ],
       ),
     );
+  }
+
+  String _getFoodItemsPlaceholder() {
+    if (_selectedFoodPlaceType == null) return 'Food items (optional)';
+    
+    switch (_selectedFoodPlaceType!) {
+      case FoodPlaceType.restaurant:
+        return 'Dishes you tried or want to try (optional)';
+      case FoodPlaceType.cafe:
+        return 'Drinks, pastries, or food items (optional)';
+      case FoodPlaceType.pubBar:
+        return 'Drinks, appetizers, or food (optional)';
+      case FoodPlaceType.fastFood:
+        return 'Menu items you ordered (optional)';
+      case FoodPlaceType.dessert:
+        return 'Desserts or sweets (optional)';
+      case FoodPlaceType.streetFood:
+        return 'Street food items (optional)';
+      case FoodPlaceType.specialty:
+        return 'Specialty items (optional)';
+      case FoodPlaceType.other:
+        return 'Food items (optional)';
+    }
   }
 }
