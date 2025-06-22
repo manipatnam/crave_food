@@ -381,6 +381,10 @@ class MyApp extends StatelessWidget {
   }
 
   // Modern Dark Theme for Food App
+  // COMPLETE SOLUTION: 
+// Replace your _buildDarkTheme() method in lib/main.dart with this updated version:
+  // COMPLETE REPLACEMENT: Replace your _buildDarkTheme() method in lib/main.dart with this:
+
   ThemeData _buildDarkTheme() {
     const primaryColor = Color(0xFFFF7A47); // Lighter orange for dark mode
     const secondaryColor = Color(0xFFFFC94A); // Lighter golden yellow
@@ -401,17 +405,17 @@ class MyApp extends StatelessWidget {
         surface: surfaceColor,
         background: backgroundColor,
         error: errorColor,
-        onPrimary: Color(0xFF1A1A1A),
+        onPrimary: Colors.white, // Changed to white for better contrast
         onSecondary: Color(0xFF1A1A1A),
         onTertiary: Color(0xFF1A1A1A),
         onSurface: Color(0xFFE0E0E0),
         onBackground: Color(0xFFE0E0E0),
-        onError: Color(0xFF1A1A1A),
+        onError: Colors.white, // Changed to white
         outline: Color(0xFF404040),
         surfaceVariant: Color(0xFF2A2A2A),
       ),
 
-      // Same typography but with dark colors
+      // Typography with dark colors
       textTheme: const TextTheme(
         displayLarge: TextStyle(
           fontSize: 32,
@@ -529,6 +533,68 @@ class MyApp extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
 
+      // *** CRITICAL FIX: Elevated Button Theme for Dark Mode ***
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: primaryColor, // Orange background
+          foregroundColor: Colors.white, // White text for maximum contrast
+          elevation: 4,
+          shadowColor: primaryColor.withOpacity(0.3),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+
+      // Outlined Button Theme for Dark Mode
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primaryColor,
+          side: const BorderSide(color: primaryColor, width: 1.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+        ),
+      ),
+
+      // Text Button Theme for Dark Mode
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: primaryColor,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          textStyle: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.25,
+          ),
+        ),
+      ),
+
+      // FloatingActionButton Theme for Dark Mode
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: primaryColor,
+        foregroundColor: Colors.white, // White for contrast
+        elevation: 6,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+        ),
+      ),
+
       // Input Decoration Theme for Dark Mode
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
@@ -583,7 +649,47 @@ class MyApp extends StatelessWidget {
         type: BottomNavigationBarType.fixed,
         elevation: 10,
       ),
-    );
+
+      // Chip Theme for Dark Mode
+      chipTheme: const ChipThemeData(
+        backgroundColor: Color(0xFF2A2A2A),
+        selectedColor: primaryColor,
+        secondarySelectedColor: secondaryColor,
+        labelStyle: TextStyle(
+          color: Color(0xFFE0E0E0),
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+        secondaryLabelStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(20)),
+        ),
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+
+      // Divider Theme for Dark Mode
+      dividerTheme: const DividerThemeData(
+        color: Color(0xFF404040),
+        thickness: 1,
+        space: 16,
+      ),
+
+      // Icon Theme for Dark Mode
+      iconTheme: const IconThemeData(
+        color: Color(0xFFB0B0B0),
+        size: 24,
+      ),
+
+      // Primary Icon Theme for Dark Mode
+      primaryIconTheme: const IconThemeData(
+        color: primaryColor,
+        size: 24,
+      ),
+    ); // <-- IMPORTANT: This closing brace was missing!
   }
 }
 
