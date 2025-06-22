@@ -91,7 +91,7 @@ class _ClipboardDetectorState extends State<ClipboardDetector> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'We found a $platformName link in your clipboard. Would you like to add it to this restaurant?',
+                'We found a $platformName link in your clipboard. Would you like to add it to this place?',
                 style: const TextStyle(fontSize: 14),
               ),
               const SizedBox(height: 12),

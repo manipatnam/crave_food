@@ -561,7 +561,7 @@ class _SearchScreenState extends State<SearchScreen> {
         radius: 5000, // 5km radius
       );
       
-      print('✅ Found ${results.length} restaurants near current location');
+      print('✅ Found ${results.length} places near current location');
       
       if (mounted) {
         setState(() {
@@ -574,9 +574,9 @@ class _SearchScreenState extends State<SearchScreen> {
         
         // Show user feedback
         if (results.isNotEmpty) {
-          _showSnackBar('Found ${results.length} restaurants near your location');
+          _showSnackBar('Found ${results.length} places near your location');
         } else {
-          _showSnackBar('No restaurants found near your location. Try a different search.');
+          _showSnackBar('No places found near your location. Try a different search.');
         }
       }
     } catch (e) {

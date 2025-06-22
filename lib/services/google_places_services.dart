@@ -18,7 +18,7 @@ class GooglePlacesService {
     try {
       final String url = '$_baseUrl/textsearch/json'
           '?query=${Uri.encodeComponent(query)}'
-          '&type=restaurant'
+          // '&type=restaurant'
           '&key=$_apiKey';
 
       final response = await http.get(Uri.parse(url));
@@ -76,7 +76,7 @@ class GooglePlacesService {
           '?query=${Uri.encodeComponent(query)}'
           '&location=${location.latitude},${location.longitude}'
           '&radius=$radius'
-          '&type=restaurant'
+          // '&type=restaurant'
           '&key=$_apiKey';
 
       final response = await http.get(Uri.parse(url));
@@ -107,7 +107,7 @@ class GooglePlacesService {
             }
           }
           
-          print('✅ Found ${places.length} restaurants near location');
+          print('✅ Found ${places.length} places near location');
           return places;
         } else {
           print('⚠️ Places API status: ${data['status']}');
@@ -170,7 +170,7 @@ class GooglePlacesService {
       final String url = '$_baseUrl/nearbysearch/json'
           '?location=$latitude,$longitude'
           '&radius=$radius'
-          '&type=restaurant'
+          // '&type=restaurant'
           '&key=$_apiKey';
 
       final response = await http.get(Uri.parse(url));

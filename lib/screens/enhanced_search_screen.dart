@@ -264,9 +264,9 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
         _addSearchResultMarkers(sortedResults);
         
         if (sortedResults.isNotEmpty) {
-          _showSnackBar('Found ${sortedResults.length} restaurants');
+          _showSnackBar('Found ${sortedResults.length} places');
         } else {
-          _showSnackBar('No restaurants found matching your criteria');
+          _showSnackBar('No places found matching your criteria');
         }
       }
     } catch (e) {
