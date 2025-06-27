@@ -1,4 +1,4 @@
-// Enhanced Favorites Screen - Main File
+// Enhanced Favorites Screen - Main File (Fixed)
 // lib/screens/favorites/enhanced_favourites_screen.dart
 
 import 'package:flutter/material.dart';
@@ -57,9 +57,9 @@ class _EnhancedFavouritesScreenState extends State<EnhancedFavouritesScreen>
                   return const FavoritesLoadingState();
                 }
 
-                if (favouritesProvider.hasError) {
+                if (favouritesProvider.errorMessage != null) {
                   return FavoritesErrorState(
-                    error: favouritesProvider.error!,
+                    error: favouritesProvider.errorMessage!,
                     onRetry: () {
                       favouritesProvider.clearError();
                       favouritesProvider.loadFavourites();
