@@ -1,30 +1,29 @@
+// Updated Main.dart with Enhanced Navigation System
+// lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 
-// Import all your existing files
+// Import providers
 import 'providers/auth_provider.dart';
 import 'providers/favourites_provider.dart';
+import 'controllers/navigation_controller.dart';
+
+// Import services
 import 'services/auth_service.dart';
+
+// Import screens
 import 'screens/login_screen.dart';
 import 'widgets/splash_screen.dart';
-
-// Import all enhanced UI components
 import 'screens/enhanced_home_screen.dart';
-import 'widgets/favourites/enhanced_favourite_card.dart';
-import 'animations/enhanced_animations.dart';
-import 'layouts/enhanced_layouts.dart';
-import 'assets/enhanced_icons.dart';
-
-// Import enhanced components
-// Note: You can gradually replace your existing screens with enhanced versions
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  print("🚀 Starting Crave Food App...");
+  print("🚀 Starting Crave Food App with Enhanced Navigation...");
   
   try {
     // Load environment variables
@@ -58,8 +57,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        // Core providers
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => FavouritesProvider()),
+        
+        // NEW: Navigation provider for gesture management
+        ChangeNotifierProvider(create: (_) => NavigationProvider()),
       ],
       child: MaterialApp(
         title: 'Crave Food',
@@ -68,6 +71,10 @@ class MyApp extends StatelessWidget {
         darkTheme: _buildDarkTheme(),
         themeMode: ThemeMode.system,
         home: const AuthWrapper(),
+        // Add navigation shortcuts for desktop/web
+        builder: (context, child) {
+          return NavigationShortcuts(child: child ?? const SizedBox());
+        },
       ),
     );
   }
@@ -76,149 +83,45 @@ class MyApp extends StatelessWidget {
   ThemeData _buildLightTheme() {
     const primaryColor = Color(0xFFFF6B35); // Vibrant orange-red
     const secondaryColor = Color(0xFFFFB627); // Golden yellow
-    const accentColor = Color(0xFF2ECC71); // Fresh green
-    const backgroundColor = Color(0xFFFAFAFA);
-    const surfaceColor = Color(0xFFFFFFFF);
-    const errorColor = Color(0xFFE74C3C);
+    const accentColor = Color(0xFF4ECDC4); // Teal
+    const surfaceColor = Color(0xFFFAFAFA); // Light grey
+    const errorColor = Color(0xFFE74C3C); // Red
 
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
-      
-      // Color Scheme
       colorScheme: const ColorScheme.light(
         primary: primaryColor,
         secondary: secondaryColor,
         tertiary: accentColor,
         surface: surfaceColor,
-        background: backgroundColor,
         error: errorColor,
         onPrimary: Colors.white,
         onSecondary: Colors.white,
-        onTertiary: Colors.white,
         onSurface: Color(0xFF1A1A1A),
-        onBackground: Color(0xFF1A1A1A),
         onError: Colors.white,
         outline: Color(0xFFE0E0E0),
-        surfaceVariant: Color(0xFFF5F5F5),
-      ),
-
-      // Typography - Modern food app style
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF1A1A1A),
-          letterSpacing: -0.5,
-        ),
-        displayMedium: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFF1A1A1A),
-          letterSpacing: -0.25,
-        ),
-        displaySmall: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF1A1A1A),
-        ),
-        headlineLarge: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF1A1A1A),
-        ),
-        headlineMedium: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF1A1A1A),
-        ),
-        headlineSmall: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF1A1A1A),
-        ),
-        titleLarge: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFF1A1A1A),
-        ),
-        titleMedium: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF1A1A1A),
-        ),
-        titleSmall: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF666666),
-        ),
-        bodyLarge: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          color: Color(0xFF1A1A1A),
-          height: 1.5,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: Color(0xFF1A1A1A),
-          height: 1.4,
-        ),
-        bodySmall: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: Color(0xFF666666),
-          height: 1.3,
-        ),
-        labelLarge: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF1A1A1A),
-        ),
-        labelMedium: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF666666),
-        ),
-        labelSmall: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF999999),
-        ),
       ),
 
       // App Bar Theme
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        scrolledUnderElevation: 2,
-        shadowColor: Color(0x10000000),
-        surfaceTintColor: surfaceColor,
-        iconTheme: IconThemeData(
-          color: Color(0xFF1A1A1A),
-          size: 24,
-        ),
-        actionsIconTheme: IconThemeData(
-          color: Color(0xFF1A1A1A),
-          size: 24,
-        ),
+        scrolledUnderElevation: 0,
+        centerTitle: true,
         titleTextStyle: TextStyle(
           color: Color(0xFF1A1A1A),
           fontSize: 20,
           fontWeight: FontWeight.w600,
         ),
-        toolbarHeight: 64,
+        iconTheme: IconThemeData(color: primaryColor),
       ),
 
       // Card Theme
       cardTheme: CardTheme(
         color: surfaceColor,
-        elevation: 2,
-        shadowColor: const Color(0x15000000),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        elevation: 4,
+        shadowColor: Colors.black.withOpacity(0.1),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
       // Elevated Button Theme
@@ -227,66 +130,19 @@ class MyApp extends StatelessWidget {
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
           elevation: 2,
-          shadowColor: primaryColor.withOpacity(0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           textStyle: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
           ),
-        ),
-      ),
-
-      // Outlined Button Theme
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: primaryColor,
-          side: const BorderSide(color: primaryColor, width: 1.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ),
-
-      // Text Button Theme
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: primaryColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          textStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.25,
-          ),
-        ),
-      ),
-
-      // FloatingActionButton Theme
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
       ),
 
       // Input Decoration Theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFFF8F8F8),
+        fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: Color(0xFFE0E0E0)),
@@ -308,290 +164,86 @@ class MyApp extends StatelessWidget {
           borderSide: const BorderSide(color: errorColor, width: 2),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        hintStyle: const TextStyle(
-          color: Color(0xFF999999),
-          fontSize: 14,
-        ),
+        hintStyle: const TextStyle(color: Color(0xFF808080), fontSize: 14),
         labelStyle: const TextStyle(
-          color: Color(0xFF666666),
+          color: Color(0xFFB0B0B0),
           fontSize: 14,
           fontWeight: FontWeight.w500,
         ),
-      ),
-
-      // Chip Theme
-      chipTheme: const ChipThemeData(
-        backgroundColor: Color(0xFFF0F0F0),
-        selectedColor: primaryColor,
-        secondarySelectedColor: secondaryColor,
-        labelStyle: TextStyle(
-          color: Color(0xFF1A1A1A),
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
-        secondaryLabelStyle: TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(20)),
-        ),
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       ),
 
       // Bottom Navigation Bar Theme
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: surfaceColor,
         selectedItemColor: primaryColor,
-        unselectedItemColor: Color(0xFF999999),
+        unselectedItemColor: Color(0xFF808080),
         selectedIconTheme: IconThemeData(size: 28),
         unselectedIconTheme: IconThemeData(size: 24),
-        selectedLabelStyle: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-        unselectedLabelStyle: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w500,
-        ),
+        selectedLabelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        unselectedLabelStyle: TextStyle(fontSize: 11, fontWeight: FontWeight.w500),
         type: BottomNavigationBarType.fixed,
         elevation: 10,
-      ),
-
-      // Divider Theme
-      dividerTheme: const DividerThemeData(
-        color: Color(0xFFE8E8E8),
-        thickness: 1,
-        space: 16,
-      ),
-
-      // Icon Theme
-      iconTheme: const IconThemeData(
-        color: Color(0xFF666666),
-        size: 24,
-      ),
-
-      // Primary Icon Theme
-      primaryIconTheme: const IconThemeData(
-        color: primaryColor,
-        size: 24,
       ),
     );
   }
 
   // Modern Dark Theme for Food App
-  // COMPLETE SOLUTION: 
-// Replace your _buildDarkTheme() method in lib/main.dart with this updated version:
-  // COMPLETE REPLACEMENT: Replace your _buildDarkTheme() method in lib/main.dart with this:
-
   ThemeData _buildDarkTheme() {
-    const primaryColor = Color(0xFFFF7A47); // Lighter orange for dark mode
-    const secondaryColor = Color(0xFFFFC94A); // Lighter golden yellow
-    const accentColor = Color(0xFF4ECDC4); // Teal accent
-    const backgroundColor = Color(0xFF121212);
-    const surfaceColor = Color(0xFF1E1E1E);
-    const errorColor = Color(0xFFFF6B6B);
+    const primaryColor = Color(0xFFFF6B35); // Vibrant orange-red
+    const secondaryColor = Color(0xFFFFB627); // Golden yellow
+    const accentColor = Color(0xFF4ECDC4); // Teal
+    const surfaceColor = Color(0xFF1E1E1E); // Dark grey
+    const errorColor = Color(0xFFE74C3C); // Red
 
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
-      
-      // Color Scheme
       colorScheme: const ColorScheme.dark(
         primary: primaryColor,
         secondary: secondaryColor,
         tertiary: accentColor,
         surface: surfaceColor,
-        background: backgroundColor,
         error: errorColor,
-        onPrimary: Colors.white, // Changed to white for better contrast
-        onSecondary: Color(0xFF1A1A1A),
-        onTertiary: Color(0xFF1A1A1A),
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
         onSurface: Color(0xFFE0E0E0),
-        onBackground: Color(0xFFE0E0E0),
-        onError: Colors.white, // Changed to white
+        onError: Colors.white,
         outline: Color(0xFF404040),
-        surfaceVariant: Color(0xFF2A2A2A),
-      ),
-
-      // Typography with dark colors
-      textTheme: const TextTheme(
-        displayLarge: TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFFE0E0E0),
-          letterSpacing: -0.5,
-        ),
-        displayMedium: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.bold,
-          color: Color(0xFFE0E0E0),
-          letterSpacing: -0.25,
-        ),
-        displaySmall: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFFE0E0E0),
-        ),
-        headlineLarge: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFFE0E0E0),
-        ),
-        headlineMedium: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFFE0E0E0),
-        ),
-        headlineSmall: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFFE0E0E0),
-        ),
-        titleLarge: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          color: Color(0xFFE0E0E0),
-        ),
-        titleMedium: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFFE0E0E0),
-        ),
-        titleSmall: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFFB0B0B0),
-        ),
-        bodyLarge: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w400,
-          color: Color(0xFFE0E0E0),
-          height: 1.5,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-          color: Color(0xFFE0E0E0),
-          height: 1.4,
-        ),
-        bodySmall: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w400,
-          color: Color(0xFFB0B0B0),
-          height: 1.3,
-        ),
-        labelLarge: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFFE0E0E0),
-        ),
-        labelMedium: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFFB0B0B0),
-        ),
-        labelSmall: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF808080),
-        ),
       ),
 
       // App Bar Theme for Dark Mode
       appBarTheme: const AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        scrolledUnderElevation: 2,
-        shadowColor: Color(0x20000000),
-        surfaceTintColor: surfaceColor,
-        iconTheme: IconThemeData(
-          color: Color(0xFFE0E0E0),
-          size: 24,
-        ),
-        actionsIconTheme: IconThemeData(
-          color: Color(0xFFE0E0E0),
-          size: 24,
-        ),
+        scrolledUnderElevation: 0,
+        centerTitle: true,
         titleTextStyle: TextStyle(
           color: Color(0xFFE0E0E0),
           fontSize: 20,
           fontWeight: FontWeight.w600,
         ),
-        toolbarHeight: 64,
+        iconTheme: IconThemeData(color: primaryColor),
       ),
 
       // Card Theme for Dark Mode
       cardTheme: CardTheme(
         color: surfaceColor,
         elevation: 4,
-        shadowColor: const Color(0x30000000),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        shadowColor: Colors.black.withOpacity(0.3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
-      // *** CRITICAL FIX: Elevated Button Theme for Dark Mode ***
+      // Elevated Button Theme for Dark Mode
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primaryColor, // Orange background
-          foregroundColor: Colors.white, // White text for maximum contrast
-          elevation: 4,
-          shadowColor: primaryColor.withOpacity(0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           textStyle: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
           ),
-        ),
-      ),
-
-      // Outlined Button Theme for Dark Mode
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: primaryColor,
-          side: const BorderSide(color: primaryColor, width: 1.5),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-          ),
-        ),
-      ),
-
-      // Text Button Theme for Dark Mode
-      textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: primaryColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          textStyle: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.25,
-          ),
-        ),
-      ),
-
-      // FloatingActionButton Theme for Dark Mode
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white, // White for contrast
-        elevation: 6,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
       ),
 
@@ -689,11 +341,11 @@ class MyApp extends StatelessWidget {
         color: primaryColor,
         size: 24,
       ),
-    ); // <-- IMPORTANT: This closing brace was missing!
+    );
   }
 }
 
-// Auth Wrapper to handle initial routing
+// Auth Wrapper with Enhanced Navigation Integration
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -706,12 +358,222 @@ class AuthWrapper extends StatelessWidget {
         }
         
         if (authProvider.user != null) {
-          // Use the enhanced home screen instead of the old one
+          // Use the enhanced home screen with IndexedStack navigation
           return const EnhancedHomeScreen();
         }
         
         return const LoginScreen();
       },
     );
+  }
+}
+
+// Performance Monitor Widget (Debug Mode Only)
+class PerformanceMonitor extends StatefulWidget {
+  final Widget child;
+  
+  const PerformanceMonitor({super.key, required this.child});
+
+  @override
+  State<PerformanceMonitor> createState() => _PerformanceMonitorState();
+}
+
+class _PerformanceMonitorState extends State<PerformanceMonitor> {
+  @override
+  void initState() {
+    super.initState();
+    
+    // Only enable performance monitoring in debug mode
+    assert(() {
+      _startPerformanceMonitoring();
+      return true;
+    }());
+  }
+
+  void _startPerformanceMonitoring() {
+    // Monitor frame rendering performance
+    WidgetsBinding.instance.addTimingsCallback((timings) {
+      for (final timing in timings) {
+        final frameTime = timing.totalSpan.inMilliseconds;
+        if (frameTime > 16) { // 60 FPS = 16.67ms per frame
+          debugPrint('⚠️ Slow frame detected: ${frameTime}ms');
+        }
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
+  }
+}
+
+// App Lifecycle Manager
+class AppLifecycleManager extends StatefulWidget {
+  final Widget child;
+  
+  const AppLifecycleManager({super.key, required this.child});
+
+  @override
+  State<AppLifecycleManager> createState() => _AppLifecycleManagerState();
+}
+
+class _AppLifecycleManagerState extends State<AppLifecycleManager> 
+    with WidgetsBindingObserver {
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    switch (state) {
+      case AppLifecycleState.resumed:
+        debugPrint('📱 App resumed');
+        // Restore navigation state if needed
+        _restoreNavigationState();
+        break;
+      case AppLifecycleState.paused:
+        debugPrint('📱 App paused');
+        // Save navigation state
+        _saveNavigationState();
+        break;
+      case AppLifecycleState.detached:
+        debugPrint('📱 App detached');
+        break;
+      case AppLifecycleState.inactive:
+        debugPrint('📱 App inactive');
+        break;
+      case AppLifecycleState.hidden:
+        debugPrint('📱 App hidden');
+        break;
+    }
+  }
+
+  void _saveNavigationState() {
+    try {
+      final navProvider = Provider.of<NavigationProvider>(context, listen: false);
+      NavigationStatePersistence.saveNavigationState(navProvider.selectedIndex);
+    } catch (e) {
+      debugPrint('Error saving navigation state: $e');
+    }
+  }
+
+  void _restoreNavigationState() {
+    try {
+      final persistedIndex = NavigationStatePersistence.getPersistedIndex();
+      if (persistedIndex != null) {
+        final navProvider = Provider.of<NavigationProvider>(context, listen: false);
+        navProvider.setSelectedIndex(persistedIndex);
+      }
+    } catch (e) {
+      debugPrint('Error restoring navigation state: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.child;
+  }
+}
+
+// Error Boundary for Navigation
+class NavigationErrorBoundary extends StatefulWidget {
+  final Widget child;
+  
+  const NavigationErrorBoundary({super.key, required this.child});
+
+  @override
+  State<NavigationErrorBoundary> createState() => _NavigationErrorBoundaryState();
+}
+
+class _NavigationErrorBoundaryState extends State<NavigationErrorBoundary> {
+  bool _hasError = false;
+  String _errorMessage = '';
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasError) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline_rounded,
+                size: 64,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Navigation Error',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  _errorMessage,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: _resetError,
+                child: const Text('Reset App'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return widget.child;
+  }
+
+  void _resetError() {
+    setState(() {
+      _hasError = false;
+      _errorMessage = '';
+    });
+    
+    // Reset navigation state
+    try {
+      final navProvider = Provider.of<NavigationProvider>(context, listen: false);
+      navProvider.setSelectedIndex(0);
+    } catch (e) {
+      debugPrint('Error resetting navigation: $e');
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    
+    // Listen for navigation errors
+    FlutterError.onError = (details) {
+      if (details.toString().contains('navigation') || 
+          details.toString().contains('gesture')) {
+        setState(() {
+          _hasError = true;
+          _errorMessage = 'A navigation error occurred. Please restart the app.';
+        });
+      }
+    };
   }
 }
