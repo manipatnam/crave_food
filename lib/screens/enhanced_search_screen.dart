@@ -78,7 +78,7 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
     super.initState();
     _initializeAnimations();
     _initializeMap();
-    _loadFavourites();
+    // _loadFavourites();
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -216,9 +216,8 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
           _currentLocation!,
           LatLng(favourite.coordinates.latitude, favourite.coordinates.longitude),
         );
-        if (distance > _maxDistance) return false;
+        if (distance / 1000 > _maxDistance) return false;
       }
-      
       return true;
     }).toList();
   }
@@ -279,16 +278,31 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
   }
 
   List<PlaceModel> _applyFiltersToSearchResults(List<PlaceModel> results) {
-    return results.where((place) {
-      // Rating filter (handle nullable rating)
-      if (_minRating > 0.0 && (place.rating == null || place.rating! < _minRating)) return false;
-      
-      // Open only filter
-      if (_showOpenOnly && !place.isOpen) return false;
-      
-      return true;
-    }).toList();
-  }
+  return results.where((place) {
+    // Rating filter (handle nullable rating)
+    if (_minRating > 0.0 && (place.rating == null || place.rating! < _minRating)) return false;
+    
+    // Open only filter
+    if (_showOpenOnly && !place.isOpen) return false;
+    
+    // 🔧 FIXED: Distance filter (if location available and distance filter is active)
+    if (_currentLocation != null && _maxDistance < 50.0) {
+      final distance = LocationService.calculateDistance(
+        _currentLocation!,
+        LatLng(place.geoPoint.latitude, place.geoPoint.longitude),
+      );
+      // Convert meters to kilometers and compare
+      if (distance / 1000 > _maxDistance) return false;
+    }
+    
+    // TODO: Add these filters if PlaceModel supports them:
+    // - Vegetarian/Non-Vegetarian filters
+    // - Category filters
+    // - Tag filters
+    
+    return true;
+  }).toList();
+}
 
   List<PlaceModel> _sortSearchResults(List<PlaceModel> results) {
     switch (_currentSort) {
@@ -392,7 +406,7 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
     });
     
     // Refresh results
-    _loadFavourites();
+    // _loadFavourites();
     if (_searchQuery.isNotEmpty) {
       _searchPlaces(_searchQuery);
     }
@@ -481,106 +495,214 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
     print('✅ Enhanced search map created and ready');
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          // Google Map
-          _currentLocation == null
-              ? const Center(child: CircularProgressIndicator())
-              : GoogleMap(
-                  onMapCreated: _onMapCreated,
-                  initialCameraPosition: CameraPosition(
-                    target: _currentLocation!,
-                    zoom: 13.0,
-                  ),
-                  markers: _markers,
-                  myLocationEnabled: _isLocationFromGPS,
-                  myLocationButtonEnabled: false,
-                  zoomControlsEnabled: false,
-                  mapToolbarEnabled: false,
-                  compassEnabled: false,
-                  trafficEnabled: false,
-                  buildingsEnabled: false,
-                  mapType: MapType.normal,
-                  onTap: (LatLng position) {
-                    if (_selectedFavourite != null) {
-                      setState(() => _selectedFavourite = null);
-                    }
-                  },
+ @override
+Widget build(BuildContext context) {
+  return Scaffold(
+    body: Stack(
+      children: [
+        // Static GoogleMap (never rebuilds)
+        _currentLocation == null
+            ? const Center(
+                child: CircularProgressIndicator(),
+              )
+            : GoogleMap(
+                onMapCreated: _onMapCreated,
+                initialCameraPosition: CameraPosition(
+                  target: _currentLocation!,
+                  zoom: 14.0,
                 ),
-          
-          // Search Bar and Filters
-          _buildSearchBarAndFilters(),
-          
-          // Filter Panel
-          _buildFilterPanel(),
-          
-          // Search Results List
-          if (_searchResults.isNotEmpty) _buildSearchResultsList(),
-          
-          // Current Location FAB
-          Positioned(
-            bottom: 160,
-            right: 16,
-            child: FloatingActionButton(
-              mini: true,
-              backgroundColor: Colors.white,
-              foregroundColor: Theme.of(context).primaryColor,
-              onPressed: _goToCurrentLocation,
-              heroTag: "current_location",
-              child: Icon(_isLocationFromGPS ? Icons.my_location : Icons.location_searching),
-            ),
-          ),
+                markers: _markers,
+                myLocationEnabled: true,
+                myLocationButtonEnabled: false,
+                zoomControlsEnabled: false,
+                mapToolbarEnabled: false,
+              ),
 
-          // Info Button for Map Legend (Below Current Location)
-          Positioned(
-            bottom: 100,
-            right: 16,
-            child: Container(
-              height: 50,
-              width: 50,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(25),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: IconButton(
-                onPressed: _showLegendDialog,
-                icon: Icon(
-                  Icons.info_outline,
-                  color: Theme.of(context).primaryColor,
+        // Hybrid Consumer 1: Only updates when favorites list changes
+        Selector<FavouritesProvider, List<Favourite>>(
+          selector: (context, provider) => provider.favourites,
+          builder: (context, favourites, child) {
+            print('🔄 Favorites changed: ${favourites.length} favorites');
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _addFavouriteMarkers(favourites);
+              }
+            });
+            return const SizedBox.shrink(); // Invisible widget
+          },
+        ),
+
+        // Hybrid Consumer 2: Only updates when loading state changes
+        Selector<FavouritesProvider, bool>(
+          selector: (context, provider) => provider.isLoading,
+          builder: (context, isLoading, child) {
+            print('🔄 Loading state changed: $isLoading');
+            return isLoading
+                ? Container(
+                    color: Colors.black.withOpacity(0.3),
+                    child: const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(color: Colors.white),
+                          SizedBox(height: 16),
+                          Text(
+                            'Loading your favorites...',
+                            style: TextStyle(color: Colors.white, fontSize: 16),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink();
+          },
+        ),
+
+        // Hybrid Consumer 3: Only updates when error state changes
+        Selector<FavouritesProvider, String?>(
+          selector: (context, provider) => provider.errorMessage,
+          builder: (context, errorMessage, child) {
+            print('🔄 Error state changed: $errorMessage');
+            return errorMessage != null
+                ? Positioned(
+                    top: 100,
+                    left: 16,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error, color: Colors.white),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              errorMessage,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              Provider.of<FavouritesProvider>(context, listen: false)
+                                  .clearError();
+                            },
+                            icon: const Icon(Icons.close, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink();
+          },
+        ),
+
+        // All your existing static UI elements (these never rebuild)
+        
+        // Search Bar
+        Positioned(
+          top: 50,
+          left: 16,
+          right: 70,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(25),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
                 ),
-                tooltip: 'Map Legend',
+              ],
+            ),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search restaurants...',
+                prefixIcon: _isSearching
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : const Icon(Icons.search_rounded),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        onPressed: () {
+                          _searchController.clear();
+                          _clearSearchResults();
+                        },
+                        icon: const Icon(Icons.clear_rounded),
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 15,
+                ),
               ),
             ),
           ),
-          
-          // Restaurant Info Sheet
-          if (_selectedFavourite != null)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: RestaurantInfoSheet(
-                favourite: _selectedFavourite!,
-                currentLocation: _currentLocation!,
-                onNavigate: () => _navigateToRestaurant(_selectedFavourite!),
-                onClose: () => setState(() => _selectedFavourite = null),
-              ),
+        ),
+
+        // Filter Button
+        Positioned(
+          top: 50,
+          right: 16,
+          child: FloatingActionButton(
+            mini: true,
+            heroTag: "filter_button",
+            onPressed: _toggleFilters,
+            backgroundColor: _showFilters 
+                ? Theme.of(context).primaryColor 
+                : Colors.white,
+            child: Icon(
+              Icons.filter_list_rounded,
+              color: _showFilters ? Colors.white : Colors.grey[600],
             ),
-        ],
-      ),
-    );
-  }
+          ),
+        ),
+
+        // Location Button
+        Positioned(
+          bottom: 100,
+          right: 16,
+          child: FloatingActionButton(
+            mini: true,
+            heroTag: "location_button",
+            onPressed: _goToCurrentLocation,
+            backgroundColor: Colors.white,
+            child: Icon(
+              Icons.my_location_rounded,
+              color: Colors.grey[600],
+            ),
+          ),
+        ),
+
+        // Add your existing filter panel, search results, etc.
+        if (_showFilters) _buildFilterPanel(),
+        if (_searchResults.isNotEmpty) _buildSearchResultsList(),
+        if (_selectedFavourite != null) 
+            RestaurantInfoSheet(
+              favourite: _selectedFavourite!,
+              currentLocation: _currentLocation!,
+              onNavigate: () {
+                // Handle navigation
+              },
+              onClose: () {
+                setState(() => _selectedFavourite = null);
+              },
+            ),
+      ],
+    ),
+  );
+}
 
   void _navigateToRestaurant(Favourite favourite) {
     // TODO: Implement navigation to restaurant
@@ -819,7 +941,7 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
                 label: _minRating == 0.0 ? 'Any' : _minRating.toStringAsFixed(1),
                 onChanged: (value) {
                   setState(() => _minRating = value);
-                  _loadFavourites();
+                  // _loadFavourites();
                   if (_searchQuery.isNotEmpty) {
                     _searchPlaces(_searchQuery);
                   }
@@ -864,7 +986,7 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
                 label: _maxDistance >= 50.0 ? 'Any' : '${_maxDistance.toInt()} km',
                 onChanged: (value) {
                   setState(() => _maxDistance = value);
-                  _loadFavourites();
+                  // _loadFavourites();
                   if (_searchQuery.isNotEmpty) {
                     _searchPlaces(_searchQuery);
                   }
@@ -975,7 +1097,7 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
                     _selectedCategories.remove(category);
                   }
                 });
-                _loadFavourites();
+                // _loadFavourites();
                 if (_searchQuery.isNotEmpty) {
                   _searchPlaces(_searchQuery);
                 }
