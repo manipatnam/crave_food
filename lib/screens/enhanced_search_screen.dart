@@ -27,6 +27,7 @@ import '../widgets/search/tags_filter.dart';
 import '../widgets/search/active_filters_row.dart';
 import '../widgets/search/filter_content.dart';
 import '../widgets/search/animated_filter_panel.dart';
+import '../widgets/search/search_result_tile.dart';
 
 class EnhancedSearchScreen extends StatefulWidget {
   const EnhancedSearchScreen({super.key});
@@ -929,116 +930,17 @@ Widget build(BuildContext context) {
                 itemCount: _searchResults.length > 5 ? 5 : _searchResults.length,
                 itemBuilder: (context, index) {
                   final place = _searchResults[index];
-                  return _buildSearchResultTile(place, index == _searchResults.length - 1);
+                  return SearchResultTile(
+                    place: place,
+                    isLast: index == _searchResults.length - 1,
+                    currentLocation: _currentLocation,
+                    onTap: () => _showAddFavouriteDialog(place),
+                  );
                 },
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildSearchResultTile(PlaceModel place, bool isLast) {
-    final distance = _currentLocation != null 
-        ? LocationService.calculateDistance(
-            _currentLocation!,
-            LatLng(place.geoPoint.latitude, place.geoPoint.longitude),
-          )
-        : 0.0;
-    
-    return Container(
-      margin: EdgeInsets.only(bottom: isLast ? 16 : 8),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: ListTile(
-        onTap: () => _showAddFavouriteDialog(place),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: Theme.of(context).primaryColor.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            Icons.restaurant_rounded,
-            color: Theme.of(context).primaryColor,
-          ),
-        ),
-        title: Text(
-          place.name,
-          style: const TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 16,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (place.displayAddress.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                place.displayAddress,
-                style: TextStyle(
-                  color: Colors.grey[600],
-                  fontSize: 12,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                if (place.rating != null && place.rating! > 0) ...[
-                  Icon(
-                    Icons.star_rounded,
-                    size: 16,
-                    color: Colors.orange[600],
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    place.rating!.toStringAsFixed(1),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                if (_currentLocation != null) ...[
-                  Icon(
-                    Icons.location_on_rounded,
-                    size: 16,
-                    color: Colors.grey[600],
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${distance.toStringAsFixed(1)} km',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
-        ),
-        trailing: IconButton(
-          onPressed: () => _showAddFavouriteDialog(place),
-          icon: Icon(
-            Icons.add_circle_rounded,
-            color: Theme.of(context).primaryColor,
-          ),
-          tooltip: 'Add to Favorites',
-        ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
     );
   }
