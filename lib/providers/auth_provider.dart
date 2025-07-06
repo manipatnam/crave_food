@@ -1,3 +1,6 @@
+// OPTIMIZED lib/providers/auth_provider.dart  
+// Performance Fix #1: Remove artificial delays and reduce unnecessary rebuilds
+
 import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
@@ -22,46 +25,51 @@ class AuthProvider extends ChangeNotifier {
     _initializeAuthListener();
   }
 
-  // Initialize authentication state listener
+  // Initialize authentication state listener - OPTIMIZED
   void _initializeAuthListener() {
-    _authService.authStateChanges.listen((User? firebaseUser) async {
-      print("🔍 Auth state changed: ${firebaseUser?.email ?? 'null'}");
+    _authService.authStateChanges.listen((User? firebaseUser) {
+      final oldStatus = _status;
+      final oldUser = _user;
       
       if (firebaseUser != null) {
-        print("✅ User authenticated: ${firebaseUser.email}");
         _user = UserModel.fromFirebaseUser(firebaseUser);
         _status = AuthStatus.authenticated;
       } else {
-        print("❌ User not authenticated");
         _user = null;
         _status = AuthStatus.unauthenticated;
       }
       
-      print("📊 Updated auth status: $_status");
-      notifyListeners();
+      // Only notify listeners if state actually changed
+      if (oldStatus != _status || oldUser?.uid != _user?.uid) {
+        notifyListeners();
+      }
     });
   }
 
-  // Clear error message
+  // Clear error message - OPTIMIZED (only notify if needed)
   void clearError() {
-    _errorMessage = null;
-    notifyListeners();
+    if (_errorMessage != null) {
+      _errorMessage = null;
+      notifyListeners();
+    }
   }
 
-  // Set loading state
+  // Set loading state - OPTIMIZED (only notify if changed)
   void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
+    if (_isLoading != loading) {
+      _isLoading = loading;
+      notifyListeners();
+    }
   }
 
-  // Set error message
+  // Set error message - OPTIMIZED 
   void _setError(String error) {
     _errorMessage = error;
     _isLoading = false;
     notifyListeners();
   }
 
-  // Sign in with email and password
+  // Sign in with email and password - OPTIMIZED (no artificial delays)
   Future<bool> signInWithEmailAndPassword({
     required String email,
     required String password,
@@ -70,41 +78,20 @@ class AuthProvider extends ChangeNotifier {
       clearError();
       _setLoading(true);
       
-      print("🔐 Attempting sign in for: $email");
-      
-      UserModel? userModel;
-      try {
-        userModel = await _authService.signInWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-      } catch (e) {
-        print("⚠️ Sign in threw error, but checking auth state...");
-        
-        // Wait a moment and check if user is actually authenticated
-        await Future.delayed(const Duration(milliseconds: 1500));
-        
-        if (_status == AuthStatus.authenticated) {
-          print("✅ User is authenticated despite error - treating as success");
-          _setLoading(false);
-          return true;
-        }
-        
-        rethrow; // Re-throw if user is not actually authenticated
-      }
-      
-      print("📊 Sign in result: ${userModel?.email ?? 'null'}");
+      final userModel = await _authService.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
       
       _setLoading(false);
       return userModel != null;
     } catch (e) {
-      print("❌ Sign in error: $e");
       _setError(e.toString());
       return false;
     }
   }
 
-  // Register with email and password
+  // Register with email and password - OPTIMIZED (no artificial delays)
   Future<bool> registerWithEmailAndPassword({
     required String email,
     required String password,
@@ -114,66 +101,35 @@ class AuthProvider extends ChangeNotifier {
       clearError();
       _setLoading(true);
       
-      print("📝 Attempting registration for: $email");
-      
-      UserModel? userModel;
-      try {
-        userModel = await _authService.registerWithEmailAndPassword(
-          email: email,
-          password: password,
-          displayName: displayName,
-        );
-      } catch (e) {
-        print("⚠️ Registration threw error, but checking if user exists...");
-        
-        // Check if user was actually created despite the error
-        final currentUser = _authService.currentUser;
-        if (currentUser != null && currentUser.email == email.trim()) {
-          print("✅ User was created successfully despite error");
-          userModel = UserModel.fromFirebaseUser(currentUser);
-        } else {
-          rethrow; // Re-throw if user wasn't actually created
-        }
-      }
-      
-      print("📊 Final registration result: ${userModel?.email ?? 'null'}");
+      final userModel = await _authService.registerWithEmailAndPassword(
+        email: email,
+        password: password,
+        displayName: displayName,
+      );
       
       _setLoading(false);
-      
-      if (userModel != null) {
-        print("✅ Registration successful, waiting for auth state update...");
-        // Give a moment for the auth state listener to update
-        await Future.delayed(const Duration(milliseconds: 800));
-        return true;
-      } else {
-        return false;
-      }
+      return userModel != null;
     } catch (e) {
-      print("❌ Registration error: $e");
       _setError(e.toString());
       return false;
     }
   }
 
-  // Sign out
+  // Sign out - OPTIMIZED
   Future<void> signOut() async {
     try {
       clearError();
       _setLoading(true);
       
-      print("🚪 Signing out user...");
-      
       await _authService.signOut();
       
       _setLoading(false);
-      print("✅ Sign out successful");
     } catch (e) {
-      print("❌ Sign out error: $e");
       _setError(e.toString());
     }
   }
 
-  // Reset password
+  // Reset password - OPTIMIZED
   Future<bool> resetPassword({required String email}) async {
     try {
       clearError();
@@ -189,7 +145,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Send email verification
+  // Send email verification - OPTIMIZED
   Future<bool> sendEmailVerification() async {
     try {
       clearError();
@@ -205,7 +161,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Check email verification status
+  // Check email verification status - OPTIMIZED 
   Future<void> checkEmailVerification() async {
     try {
       await _authService.reloadUser();
@@ -218,7 +174,8 @@ class AuthProvider extends ChangeNotifier {
         }
       }
     } catch (e) {
-      _setError(e.toString());
+      // Don't show error for verification checks - not critical
+      print('Error checking email verification: $e');
     }
   }
 
