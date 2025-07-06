@@ -6,9 +6,12 @@ import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 import '../../providers/favourites_provider.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';  // ← ADD THIS LINE
 import '../../models/favourite_model.dart';
 import '../add_favourite_screen.dart';
 import 'favourites_sort_options.dart';
+import '../../providers/location_provider.dart';  // ← ADD THIS LINE
+
 
 mixin FavouritesScreenState<T extends StatefulWidget> on State<T>, TickerProviderStateMixin<T> {
   // Animation Controllers
@@ -29,9 +32,6 @@ mixin FavouritesScreenState<T extends StatefulWidget> on State<T>, TickerProvide
   String searchQuery = '';
   bool showFilters = false;
 
-  // Location State
-  Position? currentLocation;
-  bool isLoadingLocation = false;
 
   @override
   void initState() {
@@ -65,36 +65,10 @@ mixin FavouritesScreenState<T extends StatefulWidget> on State<T>, TickerProvide
     fabController.forward();
   }
 
-  void initializeLocation() async {
-    setState(() => isLoadingLocation = true);
-    try {
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        setState(() => isLoadingLocation = false);
-        return;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          setState(() => isLoadingLocation = false);
-          return;
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        setState(() => isLoadingLocation = false);
-        return;
-      }
-
-      currentLocation = await Geolocator.getCurrentPosition();
-    } catch (e) {
-      debugPrint('Error getting location: $e');
-    } finally {
-      setState(() => isLoadingLocation = false);
-    }
-  }
+void initializeLocation() {
+  // Location is already managed by LocationProvider
+  print('✅ Favourites using location from LocationProvider');
+}
 
   void loadFavourites() {
     Provider.of<FavouritesProvider>(context, listen: false).loadFavourites();
@@ -127,6 +101,40 @@ mixin FavouritesScreenState<T extends StatefulWidget> on State<T>, TickerProvide
       if (showVegOnly != null) this.showVegOnly = showVegOnly;
       if (showNonVegOnly != null) this.showNonVegOnly = showNonVegOnly;
     });
+  }
+
+    // ✅ ADD Provider Access Getters HERE:
+  Position? get currentLocation {
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    final location = locationProvider.currentLocation;
+    
+    if (location != null) {
+      // Convert LatLng to Position for compatibility with existing code
+      return Position(
+        latitude: location.latitude,
+        longitude: location.longitude,
+        timestamp: DateTime.now(),
+        accuracy: 10.0,
+        altitude: 0.0,
+        altitudeAccuracy: 0.0,
+        heading: 0.0,
+        headingAccuracy: 0.0,
+        speed: 0.0,
+        speedAccuracy: 0.0,
+      );
+    }
+    return null;
+  }
+
+  bool get isLoadingLocation {
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    return locationProvider.isLoadingLocation;
+  }
+
+  // Helper method to get LatLng directly (for when you need it)
+  LatLng? get currentLatLng {
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    return locationProvider.currentLocation;
   }
 
   void updateSort(SortOption sortOption) {

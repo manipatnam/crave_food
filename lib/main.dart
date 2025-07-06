@@ -10,6 +10,7 @@ import 'firebase_options.dart';
 // Import providers
 import 'providers/auth_provider.dart';
 import 'providers/favourites_provider.dart';
+import 'providers/location_provider.dart';
 import 'controllers/navigation_controller.dart';
 
 // Import services
@@ -60,6 +61,9 @@ class MyApp extends StatelessWidget {
         // Core providers
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => FavouritesProvider()),
+
+        // NEW: Optimized location provider
+        ChangeNotifierProvider(create: (_) => LocationProvider()),
         
         // NEW: Navigation provider for gesture management
         ChangeNotifierProvider(create: (_) => NavigationProvider()),
@@ -358,6 +362,11 @@ class AuthWrapper extends StatelessWidget {
         }
         
         if (authProvider.user != null) {
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {           
+            Provider.of<LocationProvider>(context, listen: false)      
+                .initializeLocation();                                  
+          }); 
           // Use the enhanced home screen with IndexedStack navigation
           return const EnhancedHomeScreen();
         }

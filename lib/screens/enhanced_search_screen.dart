@@ -29,6 +29,8 @@ import '../widgets/search/filter_content.dart';
 import '../widgets/search/animated_filter_panel.dart';
 import '../widgets/search/search_result_tile.dart';
 
+import '../providers/location_provider.dart';  
+
 class EnhancedSearchScreen extends StatefulWidget {
   const EnhancedSearchScreen({super.key});
 
@@ -45,10 +47,6 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
   
   // Location State
   LatLng? _currentLocation;
-  String _locationDisplayName = 'Detecting location...';
-  bool _isLocationFromGPS = false;
-  bool _isLocationFromIP = false;
-  bool _isLoadingLocation = true;
   
   // Map and Search State
   Set<Marker> _markers = {};
@@ -77,21 +75,61 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
   // Debouncer for search
   Timer? _searchDebouncer;
 
+  String get _locationDisplayName {
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    return locationProvider.locationName;
+  }
+
+  bool get _isLocationFromGPS {
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    return locationProvider.isUsingUserLocation;
+  }
+
+  bool get _isLoadingLocation {
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    return locationProvider.isLoadingLocation;
+  }
+
+
   @override
   void initState() {
     super.initState();
+    print('🗺️ EnhancedSearchScreen initState called');
     _initializeAnimations();
     _initializeMap();
-    // _loadFavourites();
     _searchController.addListener(_onSearchChanged);
+    
+    // ✅ ADD THIS: Listen to location changes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<LocationProvider>(context, listen: false).addListener(_onLocationChanged);
+    });
   }
 
+  // ✅ ADD THIS METHOD:
+  void _onLocationChanged() {
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    
+    print('🗺️ Location changed! New location: ${locationProvider.currentLocation}');
+    
+    if (locationProvider.currentLocation != null && _currentLocation == null) {
+      setState(() {
+        _currentLocation = locationProvider.currentLocation;
+      });
+      print('🗺️ ✅ Map location updated: $_currentLocation');
+    }
+  }
+
+// ✅ ADD THIS to dispose:
   @override
   void dispose() {
     _searchController.dispose();
     _mapController?.dispose();
     _filterAnimationController.dispose();
     _searchDebouncer?.cancel();
+    
+    // Remove location listener
+    Provider.of<LocationProvider>(context, listen: false).removeListener(_onLocationChanged);
+    
     super.dispose();
   }
 
@@ -122,46 +160,21 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
   }
 
   Future<void> _initializeMap() async {
-    print('🗺️ Initializing enhanced search map...');
+    print('🗺️ _initializeMap called');
     
-    try {
-      final hasPermission = await LocationService.hasLocationPermission();
-      
-      if (!hasPermission && mounted) {
-        final shouldRequestPermission = await LocationService.showLocationPermissionDialog(context);
-        if (shouldRequestPermission) {
-          await LocationService.requestLocationPermission();
-        }
-      }
-      
-      final location = await LocationService.getLocationWithFallback();
-      
-      if (mounted) {
-        setState(() {
-          _currentLocation = location;
-          _isLoadingLocation = false;
-          _locationDisplayName = LocationService.getLocationDisplayName(location);
-        });
-        
-        final gpsLocation = await LocationService.getCurrentLocation();
-        if (gpsLocation != null) {
-          _isLocationFromGPS = true;
-          print('✅ Enhanced search map initialized with GPS location');
-        } else {
-          _isLocationFromIP = true;
-          print('✅ Enhanced search map initialized with fallback location');
-          _showLocationFallbackInfo();
-        }
-      }
-    } catch (e) {
-      print('❌ Error initializing enhanced search map: $e');
-      if (mounted) {
-        setState(() {
-          _isLoadingLocation = false;
-          _locationDisplayName = 'Location unavailable';
-        });
-        _showSnackBar('Error detecting location. Please enable location services.');
-      }
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    
+    print('🗺️ LocationProvider.currentLocation: ${locationProvider.currentLocation}');
+    
+    // If location is available, use it immediately
+    if (locationProvider.currentLocation != null) {
+      setState(() {
+        _currentLocation = locationProvider.currentLocation;
+      });
+      print('🗺️ ✅ Location set immediately: $_currentLocation');
+    } else {
+      print('🗺️ ⏳ Location not ready yet, will listen for changes');
+      // Location will be set when provider updates (see next step)
     }
   }
 
@@ -171,6 +184,54 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
   }
 
   void _addFavouriteMarkers(List<Favourite> favourites) {
+    print('🗺️ _addFavouriteMarkers called with ${favourites.length} favorites');
+    
+    final filteredFavourites = _applyFiltersToFavourites(favourites);
+    print('🗺️ After filtering: ${filteredFavourites.length} favorites');
+    
+    if (filteredFavourites.isEmpty) {
+      print('🗺️ ❌ No favorites after filtering!');
+      return;
+    }
+    
+    final favouriteMarkers = filteredFavourites.map((favourite) {
+      print('🗺️ Creating marker for: ${favourite.restaurantName}');
+      return Marker(
+        markerId: MarkerId('fav_${favourite.id}'),
+        position: LatLng(favourite.coordinates.latitude, favourite.coordinates.longitude),
+        icon: _getMarkerIcon(favourite),
+        infoWindow: InfoWindow(
+          title: favourite.restaurantName,
+          snippet: favourite.cuisineType ?? 'Restaurant',
+          onTap: () => _showFavouriteDetails(favourite),
+        ),
+        onTap: () => _showFavouriteDetails(favourite),
+      );
+    }).toSet();
+    
+    print('🗺️ Created ${favouriteMarkers.length} markers');
+    
+    setState(() {
+      _markers.removeWhere((marker) => marker.markerId.value.startsWith('fav_'));
+      _markers.addAll(favouriteMarkers);
+    });
+    
+    print('🗺️ ✅ Total markers on map: ${_markers.length}');
+  }
+
+  // ADD this new method after your existing _addFavouriteMarkers method:
+  void _addFavouriteMarkersOnce(List<Favourite> favourites) {
+    // Check if favorites markers are already loaded
+    final existingFavMarkers = _markers.where((marker) => 
+      marker.markerId.value.startsWith('fav_')).length;
+      
+    if (existingFavMarkers >= favourites.length) {
+      print('🗺️ Favorites already loaded, skipping');
+      return;
+    }
+    
+    print('🗺️ Actually adding ${favourites.length} favorites to map');
+    
     final filteredFavourites = _applyFiltersToFavourites(favourites);
     
     final favouriteMarkers = filteredFavourites.map((favourite) {
@@ -187,10 +248,16 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
       );
     }).toSet();
     
-    setState(() {
-      _markers.removeWhere((marker) => marker.markerId.value.startsWith('fav_'));
-      _markers.addAll(favouriteMarkers);
-    });
+    // Update markers WITHOUT setState to avoid rebuild loop
+    _markers.removeWhere((marker) => marker.markerId.value.startsWith('fav_'));
+    _markers.addAll(favouriteMarkers);
+    
+    // Force map refresh without triggering widget rebuild
+    if (_mapController != null) {
+      _mapController!.animateCamera(CameraUpdate.newLatLng(_currentLocation!));
+    }
+    
+    print('🗺️ ✅ Loaded ${favouriteMarkers.length} favorite markers');
   }
 
   List<Favourite> _applyFiltersToFavourites(List<Favourite> favourites) {
@@ -448,26 +515,34 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
 
 
   void _goToCurrentLocation() async {
-    try {
-      final location = await LocationService.getCurrentLocation();
-      if (location != null && _mapController != null) {
-        _mapController!.animateCamera(
-          CameraUpdate.newLatLngZoom(location, 15.0),
-        );
-        
-        setState(() {
-          _currentLocation = location;
-          _locationDisplayName = LocationService.getLocationDisplayName(location);
-          _isLocationFromGPS = true;
-          _isLocationFromIP = false;
-        });
-        
-        _showSnackBar('Location updated!');
-      } else {
-        _showSnackBar('Unable to get current location');
-      }
-    } catch (e) {
-      _showSnackBar('Error getting current location: $e');
+    final locationProvider = Provider.of<LocationProvider>(context, listen: false);
+    
+    // If already using user location, just animate to it
+    if (locationProvider.isUsingUserLocation && _currentLocation != null) {
+      _mapController?.animateCamera(
+        CameraUpdate.newLatLngZoom(_currentLocation!, 15.0),
+      );
+      _showSnackBar('Already at your location!');
+      return;
+    }
+    
+    // Request user's current location
+    final success = await locationProvider.requestCurrentLocation(context);
+    
+    if (success && _mapController != null) {
+      final newLocation = locationProvider.currentLocation!;
+      
+      _mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(newLocation, 15.0),
+      );
+      
+      setState(() {
+        _currentLocation = newLocation;
+      });
+      
+      _showSnackBar('Location updated to your current position!');
+    } else {
+      _showSnackBar('Unable to get current location');
     }
   }
 
@@ -508,6 +583,18 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
     print('✅ Enhanced search map created and ready');
+    
+    // ✅ ADD THIS: Load favorites when map becomes ready
+    print('🗺️ Map ready, checking for favorites to load');
+    final favProvider = Provider.of<FavouritesProvider>(context, listen: false);
+    print('🗺️ Available favorites: ${favProvider.favourites.length}');
+    
+    if (favProvider.favourites.isNotEmpty) {
+      print('🗺️ Loading favorites now that map is ready');
+      _addFavouriteMarkers(favProvider.favourites);
+    } else {
+      print('🗺️ No favorites to load yet');
+    }
   }
 
  @override
@@ -533,84 +620,63 @@ Widget build(BuildContext context) {
                 mapToolbarEnabled: false,
               ),
 
-        // Hybrid Consumer 1: Only updates when favorites list changes
-        Selector<FavouritesProvider, List<Favourite>>(
-          selector: (context, provider) => provider.favourites,
-          builder: (context, favourites, child) {
-            print('🔄 Favorites changed: ${favourites.length} favorites');
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _addFavouriteMarkers(favourites);
+        // REPLACE all 3 Selectors with this single one:
+        // NEW: Fixed Selector that prevents infinite loops
+        Selector<FavouritesProvider, String>(
+          selector: (context, provider) => 
+            '${provider.favourites.length}_${_mapController != null}',  // ← Combined state
+          builder: (context, state, child) {
+            final parts = state.split('_');
+            final favCount = int.parse(parts[0]);
+            final mapReady = parts[1] == 'true';
+            
+            if (favCount > 0 && mapReady) {
+              final existingMarkers = _markers.where((m) => m.markerId.value.startsWith('fav_')).length;
+              
+              if (existingMarkers == 0) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    final provider = Provider.of<FavouritesProvider>(context, listen: false);
+                    _addFavouriteMarkers(provider.favourites);
+                  }
+                });
               }
-            });
-            return const SizedBox.shrink(); // Invisible widget
+            }
+            
+            return const SizedBox.shrink();
           },
         ),
 
-        // Hybrid Consumer 2: Only updates when loading state changes
+        // ADD: Separate Selectors for loading and error states
         Selector<FavouritesProvider, bool>(
           selector: (context, provider) => provider.isLoading,
           builder: (context, isLoading, child) {
-            print('🔄 Loading state changed: $isLoading');
-            return isLoading
-                ? Container(
-                    color: Colors.black.withOpacity(0.3),
-                    child: const Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(color: Colors.white),
-                          SizedBox(height: 16),
-                          Text(
-                            'Loading your favorites...',
-                            style: TextStyle(color: Colors.white, fontSize: 16),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink();
+            if (!isLoading) return const SizedBox.shrink();
+            
+            return Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.3),
+                child: const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              ),
+            );
           },
         ),
 
-        // Hybrid Consumer 3: Only updates when error state changes
         Selector<FavouritesProvider, String?>(
           selector: (context, provider) => provider.errorMessage,
-          builder: (context, errorMessage, child) {
-            print('🔄 Error state changed: $errorMessage');
-            return errorMessage != null
-                ? Positioned(
-                    top: 100,
-                    left: 16,
-                    right: 16,
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error, color: Colors.white),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              errorMessage,
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () {
-                              Provider.of<FavouritesProvider>(context, listen: false)
-                                  .clearError();
-                            },
-                            icon: const Icon(Icons.close, color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink();
+          builder: (context, error, child) {
+            if (error == null) return const SizedBox.shrink();
+            
+            return Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.3),
+                child: Center(
+                  child: Text(error, style: const TextStyle(color: Colors.white)),
+                ),
+              ),
+            );
           },
         ),
 
@@ -685,18 +751,37 @@ Widget build(BuildContext context) {
         ),
 
         // Location Button
+        // Location Button with Status
         Positioned(
           bottom: 100,
           right: 16,
-          child: FloatingActionButton(
-            mini: true,
-            heroTag: "location_button",
-            onPressed: _goToCurrentLocation,
-            backgroundColor: Colors.white,
-            child: Icon(
-              Icons.my_location_rounded,
-              color: Colors.grey[600],
-            ),
+          child: Consumer<LocationProvider>(
+            builder: (context, locationProvider, child) {
+              return FloatingActionButton(
+                mini: true,
+                heroTag: "location_button",
+                onPressed: locationProvider.isLoadingLocation 
+                  ? null 
+                  : _goToCurrentLocation,
+                backgroundColor: locationProvider.isUsingUserLocation 
+                  ? Theme.of(context).primaryColor 
+                  : Colors.white,
+                child: locationProvider.isLoadingLocation
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      locationProvider.isUsingUserLocation 
+                        ? Icons.my_location 
+                        : Icons.location_searching,
+                      color: locationProvider.isUsingUserLocation 
+                        ? Colors.white 
+                        : Colors.grey[600],
+                    ),
+              );
+            },
           ),
         ),
 

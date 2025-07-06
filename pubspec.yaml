@@ -43,7 +43,6 @@ dependencies:
   
   # Maps and Location (NEW)
   google_maps_flutter: ^2.5.0
-  location: ^5.0.3
   geolocator: ^10.1.0
   permission_handler: ^11.1.0
 
@@ -51,8 +50,7 @@ dependencies:
   cached_network_image: ^3.3.0
   
   # Add this if you don't already have it (for better image loading)
-  flutter_cache_manager: ^3.3.1
-
+  shared_preferences: 2.2.2 
 dev_dependencies:
   flutter_test:
     sdk: flutter
