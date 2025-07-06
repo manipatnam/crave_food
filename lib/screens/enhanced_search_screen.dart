@@ -14,6 +14,8 @@ import '../widgets/search/restaurant_info_sheet.dart';
 import '../screens/add_favourite_screen.dart';
 import '../enums/search/search_sort_option.dart';
 import '../utils/search/search_filter_utils.dart';
+import '../utils/search/map_legend_dialog.dart';
+
 
 import '../widgets/search/active_filter_chip.dart';
 import '../widgets/search/sort_section.dart';
@@ -697,6 +699,22 @@ Widget build(BuildContext context) {
           ),
         ),
 
+        // Info/Legend Button (ADD THIS)
+        Positioned(
+          bottom: 40, // Position it below the location button
+          right: 16,
+          child: FloatingActionButton(
+            mini: true,
+            heroTag: "info_button",
+            onPressed: () => MapLegendDialog.show(context),
+            backgroundColor: Colors.white,
+            child: Icon(
+              Icons.info_outline,
+              color: Colors.grey[600],
+            ),
+          ),
+        ),
+
         // Add your existing filter panel, search results, etc.
         if (_showFilters) AnimatedFilterPanel(
                                               filterAnimation: _filterAnimation,
@@ -1022,60 +1040,6 @@ Widget build(BuildContext context) {
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
-    );
-  }
-
-  void _showLegendDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Row(
-            children: [
-              Icon(Icons.info_outline, color: Theme.of(context).primaryColor),
-              const SizedBox(width: 8),
-              const Text('Map Legend'),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildLegendItem('📍🟢', 'Vegetarian Only', 'Green pins - Restaurants serving only vegetarian food'),
-              const SizedBox(height: 12),
-              _buildLegendItem('📍🔴', 'Non-Vegetarian Only', 'Red pins - Restaurants serving only non-vegetarian food'),
-              const SizedBox(height: 12),
-              _buildLegendItem('📍🟠', 'Mixed Options', 'Orange pins - Restaurants serving both veg & non-veg food'),
-              const SizedBox(height: 12),
-              _buildLegendItem('📍🟣', 'Default', 'Purple pins - Restaurants with unspecified dietary options'),
-              const SizedBox(height: 12),
-              _buildLegendItem('📍🟡', 'Search Results', 'Yellow pins - Restaurants from your current search'),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Text(
-                  'Tip: Use filters to narrow down results and find exactly what you\'re looking for!',
-                  style: TextStyle(fontSize: 12),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'Got it!',
-                style: TextStyle(color: Theme.of(context).primaryColor),
-              ),
-            ),
-          ],
-        );
-      },
     );
   }
 
