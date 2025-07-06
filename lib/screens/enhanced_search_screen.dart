@@ -12,18 +12,19 @@ import '../services/google_places_services.dart';
 import '../models/place_model.dart';
 import '../widgets/search/restaurant_info_sheet.dart';
 import '../screens/add_favourite_screen.dart';
+import '../enums/search/search_sort_option.dart';
+import '../utils/search/search_filter_utils.dart';
 
-// Sort and Filter Options for Search
-enum SearchSortOption {
-  relevance('Relevance'),
-  distance('Distance'),
-  rating('Highest Rating'),
-  name('Name A-Z'),
-  popularity('Popularity');
-
-  const SearchSortOption(this.label);
-  final String label;
-}
+import '../widgets/search/active_filter_chip.dart';
+import '../widgets/search/sort_section.dart';
+import '../widgets/search/distance_filter.dart';
+import '../widgets/search/quick_filters.dart';
+import '../widgets/search/rating_filter.dart';
+import '../widgets/search/categories_filter.dart';
+import '../widgets/search/tags_filter.dart';
+import '../widgets/search/active_filters_row.dart';
+import '../widgets/search/filter_content.dart';
+import '../widgets/search/animated_filter_panel.dart';
 
 class EnhancedSearchScreen extends StatefulWidget {
   const EnhancedSearchScreen({super.key});
@@ -252,7 +253,7 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
       );
       
       final filteredResults = _applyFiltersToSearchResults(results);
-      final sortedResults = _sortSearchResults(filteredResults);
+      final sortedResults = SearchFilterUtils.sortSearchResults(results, _currentSort, _currentLocation);
       
       if (mounted) {
         setState(() {
@@ -304,48 +305,7 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
   }).toList();
 }
 
-  List<PlaceModel> _sortSearchResults(List<PlaceModel> results) {
-    switch (_currentSort) {
-      case SearchSortOption.distance:
-        if (_currentLocation != null) {
-          results.sort((a, b) {
-            final distanceA = LocationService.calculateDistance(
-              _currentLocation!,
-              LatLng(a.geoPoint.latitude, a.geoPoint.longitude),
-            );
-            final distanceB = LocationService.calculateDistance(
-              _currentLocation!,
-              LatLng(b.geoPoint.latitude, b.geoPoint.longitude),
-            );
-            return distanceA.compareTo(distanceB);
-          });
-        }
-        break;
-      case SearchSortOption.rating:
-        results.sort((a, b) {
-          final ratingA = a.rating ?? 0.0;
-          final ratingB = b.rating ?? 0.0;
-          return ratingB.compareTo(ratingA);
-        });
-        break;
-      case SearchSortOption.name:
-        results.sort((a, b) => a.name.compareTo(b.name));
-        break;
-      case SearchSortOption.popularity:
-        // Sort by rating * review count as a proxy for popularity
-        results.sort((a, b) {
-          final popularityA = (a.rating ?? 0.0) * (a.userRatingsTotal ?? 0);
-          final popularityB = (b.rating ?? 0.0) * (b.userRatingsTotal ?? 0);
-          return popularityB.compareTo(popularityA);
-        });
-        break;
-      case SearchSortOption.relevance:
-      default:
-        // Keep original order (Google's relevance)
-        break;
-    }
-    return results;
-  }
+
 
   void _clearSearchResults() {
     setState(() {
@@ -412,25 +372,77 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
     }
   }
 
-  List<String> _getAllCategories() {
-    final favouritesProvider = Provider.of<FavouritesProvider>(context, listen: false);
-    final categories = <String>{};
-    for (final fav in favouritesProvider.favourites) {
-      if (fav.cuisineType != null && fav.cuisineType!.isNotEmpty) {
-        categories.add(fav.cuisineType!);
-      }
+  void _refreshResults() {
+    _loadFavourites();
+    if (_searchQuery.isNotEmpty) {
+      _searchPlaces(_searchQuery);
     }
-    return categories.toList()..sort();
   }
 
-  List<String> _getAllTags() {
-    final favouritesProvider = Provider.of<FavouritesProvider>(context, listen: false);
-    final tags = <String>{};
-    for (final fav in favouritesProvider.favourites) {
-      tags.addAll(fav.tags);
-    }
-    return tags.toList()..sort();
+  void _handleSortChange(SearchSortOption newSort) {
+    setState(() => _currentSort = newSort);
+    _refreshResults();
   }
+
+  void _handleDistanceChange(double newDistance) {
+    setState(() => _maxDistance = newDistance);
+    _refreshResults();
+  }
+
+  void _handleQuickFiltersChange({
+    bool? showOpenOnly,
+    bool? showVegOnly,
+    bool? showNonVegOnly,
+    bool? showFavoritesOnly,
+  }) {
+    setState(() {
+      if (showOpenOnly != null) _showOpenOnly = showOpenOnly;
+      if (showVegOnly != null) _showVegOnly = showVegOnly;
+      if (showNonVegOnly != null) _showNonVegOnly = showNonVegOnly;
+      if (showFavoritesOnly != null) _showFavoritesOnly = showFavoritesOnly;
+    });
+    _refreshResults();
+  }
+
+  void _handleRatingChange(double newRating) {
+    setState(() => _minRating = newRating);
+    _refreshResults();
+  }
+
+  void _handleCategoriesChange(List<String> newCategories) {
+    setState(() => _selectedCategories = newCategories);
+    _refreshResults();
+  }
+
+  void _handleTagsChange(List<String> newTags) {
+    setState(() => _selectedTags = newTags);
+    _refreshResults();
+  }
+
+  void _handleActiveFilterRemove({
+    double? minRating,
+    double? maxDistance,
+    bool? showOpenOnly,
+    bool? showVegOnly,
+    bool? showNonVegOnly,
+    SearchSortOption? currentSort,
+    String? removeCategory,
+    String? removeTag,
+  }) {
+    setState(() {
+      if (minRating != null) _minRating = minRating;
+      if (maxDistance != null) _maxDistance = maxDistance;
+      if (showOpenOnly != null) _showOpenOnly = showOpenOnly;
+      if (showVegOnly != null) _showVegOnly = showVegOnly;
+      if (showNonVegOnly != null) _showNonVegOnly = showNonVegOnly;
+      if (currentSort != null) _currentSort = currentSort;
+      if (removeCategory != null) _selectedCategories.remove(removeCategory);
+      if (removeTag != null) _selectedTags.remove(removeTag);
+    });
+    _refreshResults();
+  }
+  
+
 
   void _goToCurrentLocation() async {
     try {
@@ -686,7 +698,27 @@ Widget build(BuildContext context) {
         ),
 
         // Add your existing filter panel, search results, etc.
-        if (_showFilters) _buildFilterPanel(),
+        if (_showFilters) AnimatedFilterPanel(
+                                              filterAnimation: _filterAnimation,
+                                              showFilters: _showFilters,
+                                              hasActiveFilters: _hasActiveFilters(),
+                                              currentSort: _currentSort,
+                                              minRating: _minRating,
+                                              maxDistance: _maxDistance,
+                                              showOpenOnly: _showOpenOnly,
+                                              showVegOnly: _showVegOnly,
+                                              showNonVegOnly: _showNonVegOnly,
+                                              showFavoritesOnly: _showFavoritesOnly,
+                                              selectedCategories: _selectedCategories,
+                                              selectedTags: _selectedTags,
+                                              onSortChanged: _handleSortChange,
+                                              onRatingChanged: _handleRatingChange,
+                                              onDistanceChanged: _handleDistanceChange,
+                                              onQuickFiltersChanged: _handleQuickFiltersChange,
+                                              onCategoriesChanged: _handleCategoriesChange,
+                                              onTagsChanged: _handleTagsChange,
+                                              onClearAll: _clearAllFilters,
+                                            ),
         if (_searchResults.isNotEmpty) _buildSearchResultsList(),
         if (_selectedFavourite != null) 
             RestaurantInfoSheet(
@@ -788,367 +820,20 @@ Widget build(BuildContext context) {
           ),
           
           // Active Filters Chips
-          if (_hasActiveFilters()) _buildActiveFiltersChips(),
+          if (_hasActiveFilters()) ActiveFiltersRow(
+                                                    minRating: _minRating,
+                                                    maxDistance: _maxDistance,
+                                                    showOpenOnly: _showOpenOnly,
+                                                    showVegOnly: _showVegOnly,
+                                                    showNonVegOnly: _showNonVegOnly,
+                                                    currentSort: _currentSort,
+                                                    selectedCategories: _selectedCategories,
+                                                    selectedTags: _selectedTags,
+                                                    onFilterRemoved: _handleActiveFilterRemove,
+                                                    onUpdate: _refreshResults,
+                                                  ),
         ],
       ),
-    );
-  }
-
-  Widget _buildFilterPanel() {
-    return AnimatedBuilder(
-      animation: _filterAnimation,
-      builder: (context, child) {
-        return Positioned(
-          top: MediaQuery.of(context).padding.top + 90 + 
-               (_hasActiveFilters() ? 50 : 0),
-          left: 16,
-          right: 16,
-          child: Container(
-            height: _filterAnimation.value * 400, // Max height
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: _showFilters
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : [],
-            ),
-            child: _showFilters ? _buildFilterContent() : null,
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildFilterContent() {
-    final categories = _getAllCategories();
-    final tags = _getAllTags();
-    
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Filter Header
-          Row(
-            children: [
-              const Icon(Icons.filter_list_rounded, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Filters & Sort',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              TextButton(
-                onPressed: _clearAllFilters,
-                child: const Text('Clear All'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
-          // Sort Options
-          _buildSortSection(),
-          const SizedBox(height: 16),
-          
-          // Rating Filter
-          _buildRatingFilter(),
-          const SizedBox(height: 16),
-          
-          // Distance Filter
-          _buildDistanceFilter(),
-          const SizedBox(height: 16),
-          
-          // Quick Filters
-          _buildQuickFilters(),
-          const SizedBox(height: 16),
-          
-          // Categories
-          if (categories.isNotEmpty) _buildCategoriesFilter(categories),
-          if (categories.isNotEmpty) const SizedBox(height: 16),
-          
-          // Tags
-          if (tags.isNotEmpty) _buildTagsFilter(tags),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSortSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Sort By',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: SearchSortOption.values.map((option) {
-            final isSelected = _currentSort == option;
-            return FilterChip(
-              label: Text(option.label),
-              selected: isSelected,
-              onSelected: (selected) {
-                if (selected) {
-                  setState(() => _currentSort = option);
-                  // Re-apply search if active
-                  if (_searchQuery.isNotEmpty) {
-                    _searchPlaces(_searchQuery);
-                  }
-                  _loadFavourites();
-                }
-              },
-              selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
-              checkmarkColor: Theme.of(context).primaryColor,
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRatingFilter() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Minimum Rating',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Slider(
-                value: _minRating,
-                min: 0.0,
-                max: 5.0,
-                divisions: 10,
-                label: _minRating == 0.0 ? 'Any' : _minRating.toStringAsFixed(1),
-                onChanged: (value) {
-                  setState(() => _minRating = value);
-                  // _loadFavourites();
-                  if (_searchQuery.isNotEmpty) {
-                    _searchPlaces(_searchQuery);
-                  }
-                },
-              ),
-            ),
-            Container(
-              width: 60,
-              alignment: Alignment.center,
-              child: Text(
-                _minRating == 0.0 ? 'Any' : '${_minRating.toStringAsFixed(1)}+',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDistanceFilter() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Maximum Distance',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: Slider(
-                value: _maxDistance,
-                min: 1.0,
-                max: 50.0,
-                divisions: 49,
-                label: _maxDistance >= 50.0 ? 'Any' : '${_maxDistance.toInt()} km',
-                onChanged: (value) {
-                  setState(() => _maxDistance = value);
-                  // _loadFavourites();
-                  if (_searchQuery.isNotEmpty) {
-                    _searchPlaces(_searchQuery);
-                  }
-                },
-              ),
-            ),
-            Container(
-              width: 80,
-              alignment: Alignment.center,
-              child: Text(
-                _maxDistance >= 50.0 ? 'Any distance' : '${_maxDistance.toInt()} km',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickFilters() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Quick Filters',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilterChip(
-              label: const Text('Open Now'),
-              selected: _showOpenOnly,
-              onSelected: (selected) {
-                setState(() => _showOpenOnly = selected);
-                if (_searchQuery.isNotEmpty) {
-                  _searchPlaces(_searchQuery);
-                }
-              },
-            ),
-            FilterChip(
-              label: const Text('Vegetarian'),
-              selected: _showVegOnly,
-              onSelected: (selected) {
-                setState(() {
-                  _showVegOnly = selected;
-                  if (selected) _showNonVegOnly = false;
-                });
-                _loadFavourites();
-              },
-            ),
-            FilterChip(
-              label: const Text('Non-Vegetarian'),
-              selected: _showNonVegOnly,
-              onSelected: (selected) {
-                setState(() {
-                  _showNonVegOnly = selected;
-                  if (selected) _showVegOnly = false;
-                });
-                _loadFavourites();
-              },
-            ),
-            FilterChip(
-              label: const Text('Favorites Only'),
-              selected: _showFavoritesOnly,
-              onSelected: (selected) {
-                setState(() => _showFavoritesOnly = selected);
-                // TODO: Implement favorites-only filtering
-              },
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoriesFilter(List<String> categories) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Cuisine Types',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: categories.map((category) {
-            final isSelected = _selectedCategories.contains(category);
-            return FilterChip(
-              label: Text(category),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _selectedCategories.add(category);
-                  } else {
-                    _selectedCategories.remove(category);
-                  }
-                });
-                // _loadFavourites();
-                if (_searchQuery.isNotEmpty) {
-                  _searchPlaces(_searchQuery);
-                }
-              },
-              selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
-              checkmarkColor: Theme.of(context).primaryColor,
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTagsFilter(List<String> tags) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Tags',
-          style: Theme.of(context).textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: tags.map((tag) {
-            final isSelected = _selectedTags.contains(tag);
-            return FilterChip(
-              label: Text('#$tag'),
-              selected: isSelected,
-              onSelected: (selected) {
-                setState(() {
-                  if (selected) {
-                    _selectedTags.add(tag);
-                  } else {
-                    _selectedTags.remove(tag);
-                  }
-                });
-                _loadFavourites();
-                if (_searchQuery.isNotEmpty) {
-                  _searchPlaces(_searchQuery);
-                }
-              },
-              selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
-              checkmarkColor: Theme.of(context).primaryColor,
-            );
-          }).toList(),
-        ),
-      ],
     );
   }
 
@@ -1162,103 +847,6 @@ Widget build(BuildContext context) {
            _selectedCategories.isNotEmpty ||
            _selectedTags.isNotEmpty ||
            _currentSort != SearchSortOption.relevance;
-  }
-
-  Widget _buildActiveFiltersChips() {
-    final activeFilters = <Widget>[];
-    
-    if (_minRating > 0.0) {
-      activeFilters.add(_buildActiveFilterChip(
-        'Rating: ${_minRating.toStringAsFixed(1)}+',
-        () => setState(() => _minRating = 0.0),
-      ));
-    }
-    
-    if (_maxDistance < 50.0) {
-      activeFilters.add(_buildActiveFilterChip(
-        'Distance: ${_maxDistance.toInt()}km',
-        () => setState(() => _maxDistance = 50.0),
-      ));
-    }
-    
-    if (_showOpenOnly) {
-      activeFilters.add(_buildActiveFilterChip(
-        'Open Now',
-        () => setState(() => _showOpenOnly = false),
-      ));
-    }
-    
-    if (_showVegOnly) {
-      activeFilters.add(_buildActiveFilterChip(
-        'Vegetarian',
-        () => setState(() => _showVegOnly = false),
-      ));
-    }
-    
-    if (_showNonVegOnly) {
-      activeFilters.add(_buildActiveFilterChip(
-        'Non-Vegetarian',
-        () => setState(() => _showNonVegOnly = false),
-      ));
-    }
-    
-    if (_currentSort != SearchSortOption.relevance) {
-      activeFilters.add(_buildActiveFilterChip(
-        'Sort: ${_currentSort.label}',
-        () => setState(() => _currentSort = SearchSortOption.relevance),
-      ));
-    }
-    
-    for (final category in _selectedCategories) {
-      activeFilters.add(_buildActiveFilterChip(
-        category,
-        () => setState(() => _selectedCategories.remove(category)),
-      ));
-    }
-    
-    for (final tag in _selectedTags) {
-      activeFilters.add(_buildActiveFilterChip(
-        '#$tag',
-        () => setState(() => _selectedTags.remove(tag)),
-      ));
-    }
-    
-    if (activeFilters.isEmpty) return const SizedBox.shrink();
-    
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            ...activeFilters.map((chip) => Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: chip,
-            )),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActiveFilterChip(String label, VoidCallback onRemove) {
-    return Chip(
-      label: Text(label),
-      onDeleted: () {
-        onRemove();
-        _loadFavourites();
-        if (_searchQuery.isNotEmpty) {
-          _searchPlaces(_searchQuery);
-        }
-      },
-      deleteIcon: const Icon(Icons.close_rounded, size: 18),
-      backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
-      labelStyle: TextStyle(
-        color: Theme.of(context).primaryColor,
-        fontWeight: FontWeight.w500,
-        fontSize: 12,
-      ),
-    );
   }
 
   Widget _buildSearchResultsList() {
