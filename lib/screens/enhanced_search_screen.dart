@@ -15,6 +15,7 @@ import '../screens/add_favourite_screen.dart';
 import '../enums/search/search_sort_option.dart';
 import '../utils/search/search_filter_utils.dart';
 import '../utils/search/map_legend_dialog.dart';
+import '../constants/map_styles.dart';
 
 
 import '../widgets/search/active_filter_chip.dart';
@@ -618,6 +619,7 @@ Widget build(BuildContext context) {
                 myLocationButtonEnabled: false,
                 zoomControlsEnabled: false,
                 mapToolbarEnabled: false,
+                style: MapStyles.hideAllPois,
               ),
 
         // REPLACE all 3 Selectors with this single one:
