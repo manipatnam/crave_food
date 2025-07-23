@@ -4,6 +4,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'visit_status.dart';
+
 
 class Favourite {
   final String id;
@@ -35,6 +37,8 @@ class Favourite {
   final String? placeCategory; // 'Food & Dining', 'Activities', etc.
   final String? foodPlaceType; // 'Restaurant', 'Cafe', etc. (only for food places)
 
+  final VisitStatus visitStatus;
+
   Favourite({
     required this.id,
     required this.restaurantName,
@@ -62,6 +66,8 @@ class Favourite {
     // New fields
     this.placeCategory,
     this.foodPlaceType,
+
+    this.visitStatus = VisitStatus.notVisited,
   });
 
   // Create from Firestore document
@@ -95,6 +101,8 @@ class Favourite {
       // New fields
       placeCategory: data['placeCategory'],
       foodPlaceType: data['foodPlaceType'],
+
+      visitStatus: VisitStatus.fromString(data['visitStatus']),
     );
   }
 
@@ -138,6 +146,8 @@ class Favourite {
       // New fields
       'placeCategory': placeCategory,
       'foodPlaceType': foodPlaceType,
+      // NEW: Visit status
+      'visitStatus': visitStatus.toFirestoreValue(),
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
@@ -169,6 +179,7 @@ class Favourite {
     List<String>? tags,
     String? placeCategory,
     String? foodPlaceType,
+    VisitStatus? visitStatus, //NEW
   }) {
     return Favourite(
       id: id ?? this.id,
@@ -195,6 +206,7 @@ class Favourite {
       tags: tags ?? this.tags,
       placeCategory: placeCategory ?? this.placeCategory,
       foodPlaceType: foodPlaceType ?? this.foodPlaceType,
+      visitStatus: visitStatus ?? this.visitStatus, //NEW
     );
   }
 

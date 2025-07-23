@@ -23,6 +23,9 @@ import '../widgets/add_favourite/tags_section.dart';
 import '../widgets/add_favourite/notes_section.dart';
 import '../widgets/add_favourite/save_button.dart';
 
+import '../../models/visit_status.dart';
+import '../../widgets/visit_status/visit_status_selector.dart';
+
 // Place Categories
 enum PlaceCategory {
   foodDining('Food & Dining', Icons.restaurant_menu_rounded, Color(0xFFFF6B35)),
@@ -95,12 +98,41 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
   bool _isNonVegetarianAvailable = false;
   TimeOfDay? _userOpeningTime;
   TimeOfDay? _userClosingTime;
+
+  VisitStatus _selectedVisitStatus = VisitStatus.notVisited;
   
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
 
+
+  Widget _buildVisitStatusSection() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: VisitStatusSelector(
+        selectedStatus: _selectedVisitStatus,
+        onStatusChanged: (status) {
+          setState(() {
+            _selectedVisitStatus = status;
+          });
+        },
+        isCompact: false,
+      ),
+    );
+  }
   @override
   void initState() {
     super.initState();
@@ -376,6 +408,7 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
           _selectedCategory!.label, // Add category as a tag
           if (_selectedFoodPlaceType != null) _selectedFoodPlaceType!.label, // Add food type as tag
         ],
+        visitStatus: _selectedVisitStatus,
       );
 
       final favouritesProvider = Provider.of<FavouritesProvider>(context, listen: false);
@@ -400,10 +433,21 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? Theme.of(context).colorScheme.error : null,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        content: Row(
+          children: [
+            Text(_selectedVisitStatus.emoji),
+            const SizedBox(width: 8),
+            Text(
+              _selectedVisitStatus == VisitStatus.visited
+                  ? 'Great choice! Added to visited places 🎉'
+                  : _selectedVisitStatus == VisitStatus.planned
+                      ? 'Added to your planning list! 📅'
+                      : 'Added to your favorites! ❤️',
+            ),
+          ],
+        ),
+        backgroundColor: _selectedVisitStatus.color,
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -572,7 +616,7 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
                         ),
                         
                         const SizedBox(height: 24),
-                        
+                        _buildVisitStatusSection(),
                         SocialUrlsSection(
                           controller: _socialController,
                           socialUrls: _socialUrls,

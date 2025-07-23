@@ -110,6 +110,8 @@ class FavoritesSortModal extends StatelessWidget {
         return Icons.category_rounded;
       case SortOption.distance:
         return Icons.near_me_rounded;
+      case SortOption.visitStatus: // ADD this case
+        return Icons.checklist;
     }
   }
 }

@@ -6,12 +6,15 @@ import 'package:geolocator/geolocator.dart';
 import '../../models/favourite_model.dart';
 import '../../animations/favourites/favourite_card_animations.dart';
 import 'favourite_card_components.dart';
+import '../../models/visit_status.dart';
+import '../visit_status/visit_status_selector.dart';
 
 class EnhancedFavouriteCard extends StatefulWidget {
   final Favourite favourite;
   final Function(String) onLaunchUrl;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final Function(Favourite)? onStatusChanged; //NEW
   final Position? currentLocation;
   final bool showDistance;
 
@@ -21,6 +24,7 @@ class EnhancedFavouriteCard extends StatefulWidget {
     required this.onLaunchUrl,
     required this.onEdit,
     required this.onDelete,
+    this.onStatusChanged, //NEW
     this.currentLocation,
     this.showDistance = false,
   });
@@ -86,10 +90,51 @@ class _EnhancedFavouriteCardState extends State<EnhancedFavouriteCard>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              FavouriteCardHeader(
-                favourite: widget.favourite,
-                currentLocation: widget.currentLocation,
-                showDistance: widget.showDistance,
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Visit status row at the top
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          widget.favourite.restaurantName,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Visit Status Selector
+                      if (widget.onStatusChanged != null)
+                        VisitStatusSelector(
+                          selectedStatus: widget.favourite.visitStatus,
+                          onStatusChanged: (newStatus) {
+                            final updatedFavourite = widget.favourite.copyWith(
+                              visitStatus: newStatus,
+                            );
+                            widget.onStatusChanged!(updatedFavourite);
+                          },
+                          isCompact: true,
+                        )
+                      else
+                        VisitStatusChip(
+                          status: widget.favourite.visitStatus,
+                          showLabel: true,
+                          fontSize: 11,
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Your existing header content
+                  FavouriteCardHeader(
+                    favourite: widget.favourite,
+                    currentLocation: widget.currentLocation,
+                    showDistance: widget.showDistance,
+                  ),
+                ],
               ),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
@@ -107,6 +152,51 @@ class _EnhancedFavouriteCardState extends State<EnhancedFavouriteCard>
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class VisitStatusChip extends StatelessWidget {
+  final VisitStatus status;
+  final bool showLabel;
+  final double? fontSize;
+
+  const VisitStatusChip({
+    super.key,
+    required this.status,
+    this.showLabel = true,
+    this.fontSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: status.color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: status.color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            status.emoji,
+            style: TextStyle(fontSize: fontSize ?? 12),
+          ),
+          if (showLabel) ...[
+            const SizedBox(width: 4),
+            Text(
+              status.label,
+              style: TextStyle(
+                color: status.color,
+                fontSize: fontSize ?? 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

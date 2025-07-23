@@ -3,6 +3,7 @@
 
 import 'package:geolocator/geolocator.dart';
 import '../../models/favourite_model.dart';
+import '../../models/visit_status.dart'; // ADD this import
 import '../../screens/favorites/favourites_sort_options.dart';
 
 class FavouritesSortService {
@@ -57,6 +58,12 @@ class FavouritesSortService {
             return distanceA.compareTo(distanceB);
           });
         }
+        break;
+      case SortOption.visitStatus: // ADD this case
+        sortedList.sort((a, b) {
+          // Sort by status: Not Visited -> Planned -> Visited
+          return a.visitStatus.index.compareTo(b.visitStatus.index);
+        });
         break;
     }
 
