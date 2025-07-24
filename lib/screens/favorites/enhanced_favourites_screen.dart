@@ -230,8 +230,8 @@ class _EnhancedFavouritesScreenState extends State<EnhancedFavouritesScreen>
       currentLocation: currentLocation,
     );
     
-    // return _sortService.sortFavourites(filtered, sortCriteria);
-    return filtered;
+    return _sortService.sortFavourites(filtered, sortCriteria);
+    // return filtered;
   }
 
   @override
