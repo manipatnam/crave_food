@@ -8,6 +8,8 @@ import '../providers/favourites_provider.dart';
 import 'favorites/enhanced_favourites_screen.dart';
 import 'enhanced_search_screen.dart';
 import 'add_favourite_screen.dart';
+import 'add_review_screen.dart'; // NEW: Add review screen
+import 'reviews_feed_screen.dart'; // NEW: Reviews feed screen (we'll create this next)
 import '../models/favourite_model.dart';
 
 class EnhancedHomeScreen extends StatefulWidget {
@@ -29,6 +31,7 @@ class _EnhancedHomeScreenState extends State<EnhancedHomeScreen>
   final List<Widget> _pages = [
     const EnhancedHomePage(),
     const EnhancedSearchScreen(),
+    const ReviewsFeedScreen(), // ADD THIS LINE
     const EnhancedFavouritesScreen(),
     const EnhancedProfilePage(),
   ];
@@ -135,6 +138,23 @@ class _EnhancedHomeScreenState extends State<EnhancedHomeScreen>
           ),
         ),
       ),
+    floatingActionButton: _selectedIndex == 2 ? // Show only on Reviews tab
+        FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const AddReviewScreen(),
+              ),
+            );
+          },
+          backgroundColor: Colors.orange,
+          child: const Icon(
+            Icons.rate_review,
+            color: Colors.white,
+          ),
+        ) : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -142,6 +162,7 @@ class _EnhancedHomeScreenState extends State<EnhancedHomeScreen>
     final items = [
       {'icon': Icons.home_rounded, 'label': 'Home'},
       {'icon': Icons.search_rounded, 'label': 'Search'},
+      {'icon': Icons.rate_review_rounded, 'label': 'Reviews'}, // ADD THIS LINE
       {'icon': Icons.favorite_rounded, 'label': 'Favourites'},
       {'icon': Icons.person_rounded, 'label': 'Profile'},
     ];

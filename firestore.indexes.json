@@ -1,0 +1,121 @@
+{
+    "indexes": [
+      {
+        "collectionGroup": "restaurant_reviews",
+        "queryScope": "COLLECTION",
+        "fields": [
+          {
+            "fieldPath": "privacy",
+            "order": "ASCENDING"
+          },
+          {
+            "fieldPath": "reviewDate",
+            "order": "DESCENDING"
+          }
+        ]
+      },
+      {
+        "collectionGroup": "restaurant_reviews",
+        "queryScope": "COLLECTION",
+        "fields": [
+          {
+            "fieldPath": "restaurantId",
+            "order": "ASCENDING"
+          },
+          {
+            "fieldPath": "reviewDate",
+            "order": "DESCENDING"
+          }
+        ]
+      },
+      {
+        "collectionGroup": "restaurant_reviews",
+        "queryScope": "COLLECTION",
+        "fields": [
+          {
+            "fieldPath": "userId",
+            "order": "ASCENDING"
+          },
+          {
+            "fieldPath": "reviewDate",
+            "order": "DESCENDING"
+          }
+        ]
+      },
+      {
+        "collectionGroup": "restaurant_reviews",
+        "queryScope": "COLLECTION",
+        "fields": [
+          {
+            "fieldPath": "restaurantId",
+            "order": "ASCENDING"
+          },
+          {
+            "fieldPath": "privacy",
+            "order": "ASCENDING"
+          },
+          {
+            "fieldPath": "reviewDate",
+            "order": "DESCENDING"
+          }
+        ]
+      },
+      {
+        "collectionGroup": "restaurant_reviews",
+        "queryScope": "COLLECTION",
+        "fields": [
+          {
+            "fieldPath": "privacy",
+            "order": "ASCENDING"
+          },
+          {
+            "fieldPath": "ratings.overallRating",
+            "order": "DESCENDING"
+          }
+        ]
+      },
+      {
+        "collectionGroup": "restaurant_reviews",
+        "queryScope": "COLLECTION",
+        "fields": [
+          {
+            "fieldPath": "privacy",
+            "order": "ASCENDING"
+          },
+          {
+            "fieldPath": "helpfulCount",
+            "order": "DESCENDING"
+          }
+        ]
+      },
+      {
+        "collectionGroup": "restaurants",
+        "queryScope": "COLLECTION",
+        "fields": [
+          {
+            "fieldPath": "reviewStats.totalReviews",
+            "order": "ASCENDING"
+          },
+          {
+            "fieldPath": "reviewStats.avgOverallRating",
+            "order": "DESCENDING"
+          }
+        ]
+      },
+      {
+        "collectionGroup": "restaurants",
+        "queryScope": "COLLECTION",
+        "fields": [
+          {
+            "fieldPath": "cuisineTypes",
+            "arrayConfig": "CONTAINS"
+          },
+          {
+            "fieldPath": "reviewStats.avgOverallRating",
+            "order": "DESCENDING"
+          }
+        ]
+      }
+    ],
+    "fieldOverrides": []
+  }
