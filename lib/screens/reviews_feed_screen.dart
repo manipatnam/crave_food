@@ -333,6 +333,8 @@ class _ReviewsFeedScreenState extends State<ReviewsFeedScreen>
   }
 
   Widget _buildErrorState(String error) {
+    print('💥 ReviewsFeedScreen: Building error state with error: $error');
+    
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -371,9 +373,28 @@ class _ReviewsFeedScreenState extends State<ReviewsFeedScreen>
               ),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 12),
+            // Show actual error for debugging
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                'Debug Error: $error',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.red[800],
+                  fontFamily: 'monospace',
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () {
+                print('🔄 ReviewsFeedScreen: User tapped Try Again button');
                 setState(() {
                   // Trigger rebuild to retry
                 });
