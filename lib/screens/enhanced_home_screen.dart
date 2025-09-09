@@ -111,33 +111,7 @@ class _EnhancedHomeScreenState extends State<EnhancedHomeScreen>
       ),
       
       // Enhanced Bottom Navigation
-      bottomNavigationBar: SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 1),
-          end: Offset.zero,
-        ).animate(_bottomNavAnimation),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, -5),
-              ),
-            ],
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: _buildNavItems(),
-              ),
-            ),
-          ),
-        ),
-      ),
+      bottomNavigationBar: _buildIconOnlyNavigation(),
     floatingActionButton: _selectedIndex == 2 ? // Show only on Reviews tab
         FloatingActionButton(
           onPressed: () {
@@ -158,61 +132,54 @@ class _EnhancedHomeScreenState extends State<EnhancedHomeScreen>
     );
   }
 
-  List<Widget> _buildNavItems() {
-    final items = [
-      {'icon': Icons.home_rounded, 'label': 'Home'},
-      {'icon': Icons.search_rounded, 'label': 'Search'},
-      {'icon': Icons.rate_review_rounded, 'label': 'Reviews'}, // ADD THIS LINE
-      {'icon': Icons.favorite_rounded, 'label': 'Favourites'},
-      {'icon': Icons.person_rounded, 'label': 'Profile'},
-    ];
+  Widget _buildIconOnlyNavigation() {
+    return Container(
+      height: 60, // ✅ CHANGE 1: Fixed height (was dynamic)
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)],
+      ),
+      child: SafeArea(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly, // ✅ CHANGE 2: Even spacing
+          children: [
+            _buildIconOnlyItem(Icons.home_rounded, 'Home', 0),
+            _buildIconOnlyItem(Icons.search_rounded, 'Search', 1),
+            _buildIconOnlyItem(Icons.rate_review_rounded, 'Reviews', 2),
+            _buildIconOnlyItem(Icons.favorite_rounded, 'Favorites', 3),
+            _buildIconOnlyItem(Icons.person_rounded, 'Profile', 4),
+          ],
+        ),
+      ),
+    );
+  }
 
-    return items.asMap().entries.map((entry) {
-      final index = entry.key;
-      final item = entry.value;
-      final isSelected = _selectedIndex == index;
-
-      return GestureDetector(
+// ✅ ADDED: Individual icon-only items with tooltips
+  Widget _buildIconOnlyItem(IconData icon, String label, int index) {
+    final isSelected = _selectedIndex == index;
+    
+    return Tooltip( // ✅ CHANGE 3: Added tooltips for accessibility
+      message: label, // Shows label on long press/hover
+      child: GestureDetector(
         onTap: () => _onItemTapped(index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Container(
+          padding: const EdgeInsets.all(12), // ✅ CHANGE 4: Equal padding all sides
           decoration: BoxDecoration(
             color: isSelected 
-                ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.1) 
+                : null,
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                item['icon'] as IconData,
-                color: isSelected 
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                size: isSelected ? 26 : 24,
-              ),
-              if (isSelected) ...[
-                const SizedBox(width: 8),
-                AnimatedOpacity(
-                  opacity: isSelected ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Text(
-                    item['label'] as String,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ],
-            ],
+          child: Icon(
+            icon,
+            color: isSelected 
+                ? Theme.of(context).colorScheme.primary 
+                : Colors.grey[600],
+            size: 24, // ✅ CHANGE 5: Fixed icon size (no size variations)
           ),
         ),
-      );
-    }).toList();
+      ),
+    );
   }
 }
 
