@@ -128,20 +128,6 @@ class _ReviewsFeedScreenState extends State<ReviewsFeedScreen>
           _buildReviewsFeed(ReviewFeedType.user),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AddReviewScreen(),
-            ),
-          );
-        },
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.rate_review),
-        label: const Text('Write Review'),
-      ),
     );
   }
 
