@@ -113,83 +113,11 @@ class RestaurantSearchSection extends StatelessWidget {
   }
 
   Widget _buildSearchResultTile(BuildContext context, PlaceModel place) {
-    return Container(
-      margin: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        color: Colors.grey[50],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        leading: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            width: 50,
-            height: 50,
-            color: Colors.grey[200],
-            child: place.photoUrl != null
-                ? Image.network(
-                    place.photoUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Icon(
-                      Icons.restaurant,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  )
-                : Icon(
-                    Icons.restaurant,
-                    color: Theme.of(context).primaryColor,
-                  ),
-          ),
-        ),
-        title: Text(
-          place.name,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              place.displayAddress,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-            ),
-            if (place.rating != null || place.cuisineTypes.isNotEmpty)
-              const SizedBox(height: 4),
-            Row(
-              children: [
-                if (place.rating != null) ...[
-                  Icon(Icons.star, color: Colors.amber, size: 14),
-                  const SizedBox(width: 2),
-                  Text(
-                    place.rating!.toStringAsFixed(1),
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                  ),
-                ],
-                if (place.rating != null && place.cuisineTypes.isNotEmpty)
-                  const Text(' • ', style: TextStyle(fontSize: 12)),
-                if (place.cuisineTypes.isNotEmpty)
-                  Expanded(
-                    child: Text(
-                      place.cuisineTypes,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-        trailing: Icon(
-          Icons.add_circle,
-          color: Theme.of(context).primaryColor,
-        ),
-        onTap: () => onSelectPlace(place),
-      ),
+    return SearchResultTileAdapter(
+      place: place,
+      isLast: false,
+      currentLocation: null, // Pass current location
+      onTap: () => onPlaceSelected(place),
     );
   }
 }

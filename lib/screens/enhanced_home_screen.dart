@@ -11,6 +11,8 @@ import 'add_favourite_screen.dart';
 import 'add_review_screen.dart'; // NEW: Add review screen
 import 'reviews_feed_screen.dart'; // NEW: Reviews feed screen (we'll create this next)
 import '../models/favourite_model.dart';
+import '../../widgets/common/universal_restaurant_tile.dart';
+import '../../widgets/adapters/screen_tile_adapters.dart';
 
 class EnhancedHomeScreen extends StatefulWidget {
   const EnhancedHomeScreen({super.key});
@@ -468,59 +470,15 @@ class _EnhancedHomePageState extends State<EnhancedHomePage> {
   }
 
   Widget _buildFavouritePreview(BuildContext context, Favourite favourite) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(25),
-            ),
-            child: Icon(
-              Icons.restaurant_rounded,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  favourite.restaurantName,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                if (favourite.cuisineType?.isNotEmpty == true)
-                  Text(
-                    favourite.cuisineType!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.grey[600],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Icon(
-            Icons.favorite_rounded,
-            color: Theme.of(context).colorScheme.primary,
-            size: 20,
-          ),
-        ],
-      ),
-    );
+    {
+      return HomeFavoritePreviewAdapter(
+        favourite: favourite,
+        currentLocation: null, // Add this field to your state
+        onTap: () {
+          // Navigate to favorites tab or favorite detail
+        },
+      );
+    }
   }
 
   Widget _buildDiscoverSection(BuildContext context) {

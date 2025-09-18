@@ -5,6 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'visit_status.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../widgets/common/universal_restaurant_tile.dart';
 
 
 class Favourite {
@@ -347,5 +349,29 @@ class Favourite {
     final hour = time.hour.toString().padLeft(2, '0');
     final minute = time.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
+  }
+}
+
+extension FavouriteToTileData on Favourite {
+  RestaurantTileData toTileData() {
+    return RestaurantTileData(
+      id: id,
+      name: restaurantName,
+      coordinates: LatLng(coordinates.latitude, coordinates.longitude),
+      address: _getDisplayAddress(), // Use coordinates as address for now
+      cuisineType: cuisineType,
+      rating: rating,
+      tags: tags,
+      isVegetarian: isVegetarianAvailable,
+      isNonVegetarian: isNonVegetarianAvailable,
+      photoUrl: restaurantImageUrl,
+      priceLevel: priceLevel,
+      isOpen: isOpen,
+    );
+  }
+  
+  // Helper method to generate address from coordinates
+  String _getDisplayAddress() {
+    return '${coordinates.latitude.toStringAsFixed(4)}, ${coordinates.longitude.toStringAsFixed(4)}';
   }
 }

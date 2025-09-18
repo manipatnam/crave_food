@@ -19,6 +19,10 @@ import '../../services/favourites/favourites_sort_service.dart';
 import '../../animations/favourites/favorites_screen_animations.dart';
 import 'favourites_sort_options.dart';
 import 'favourites_screen_state.dart';
+import '../../widgets/common/universal_restaurant_tile.dart';
+import '../../widgets/adapters/screen_tile_adapters.dart';
+import '../../widgets/favourites/comprehensive_favourite_card.dart';
+
 
 class EnhancedFavouritesScreen extends StatefulWidget {
   const EnhancedFavouritesScreen({super.key});
@@ -402,14 +406,13 @@ class _EnhancedFavouritesScreenState extends State<EnhancedFavouritesScreen>
       itemCount: favourites.length,
       itemBuilder: (context, index) {
         final favourite = favourites[index];
-        return EnhancedFavouriteCard(
+        return ComprehensiveFavouriteCard( // ✅ NEW: Shows ALL details
           favourite: favourite,
-          onLaunchUrl: (url) => launchUrl(url),
+          currentLocation: currentLatLng, // Use your existing location getter
           onEdit: () => _showSnackBar('Edit functionality coming soon!'),
           onDelete: () => _showDeleteConfirmation(favourite),
-          currentLocation: currentLocation,
-          showDistance: currentSort == SortOption.distance,
-          onStatusChanged: _updateVisitStatus, // Pass the callback
+          onLaunchUrl: (url) => launchUrl(url),
+          onStatusChanged: _updateVisitStatus,
         );
       },
     );

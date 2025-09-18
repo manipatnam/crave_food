@@ -31,6 +31,8 @@ import '../widgets/search/animated_filter_panel.dart';
 import '../widgets/search/search_result_tile.dart';
 
 import '../providers/location_provider.dart';  
+import '../../widgets/common/universal_restaurant_tile.dart';
+import '../../widgets/adapters/screen_tile_adapters.dart';
 
 class EnhancedSearchScreen extends StatefulWidget {
   const EnhancedSearchScreen({super.key});
@@ -1017,7 +1019,7 @@ Widget build(BuildContext context) {
                 itemCount: _searchResults.length > 5 ? 5 : _searchResults.length,
                 itemBuilder: (context, index) {
                   final place = _searchResults[index];
-                  return SearchResultTile(
+                  return SearchResultTileAdapter(
                     place: place,
                     isLast: index == _searchResults.length - 1,
                     currentLocation: _currentLocation,

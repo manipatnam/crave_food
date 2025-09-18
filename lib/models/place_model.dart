@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../widgets/common/universal_restaurant_tile.dart';
 
 class PlaceModel {
   final String placeId;
@@ -139,6 +141,22 @@ class PlaceModel {
       isOpen: json['isOpen'] ?? false,
       phoneNumber: json['phoneNumber'],
       website: json['website'],
+    );
+  }
+}
+
+extension PlaceModelToTileData on PlaceModel {
+  RestaurantTileData toTileData() {
+    return RestaurantTileData(
+      id: placeId,
+      name: name,
+      coordinates: LatLng(geoPoint.latitude, geoPoint.longitude),
+      address: displayAddress.isNotEmpty ? displayAddress : null,
+      rating: rating,
+      photoUrl: photoUrl,
+      cuisineType: types?.isNotEmpty == true ? types!.first : null,
+      priceLevel: priceLevel?.toString(),
+      isOpen: isOpen,
     );
   }
 }
