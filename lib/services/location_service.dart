@@ -172,27 +172,126 @@ class LocationService {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.my_location, color: Colors.blue),
-              SizedBox(width: 8),
-              Text('Use Your Location?'),
-            ],
+        final screenSize = MediaQuery.of(context).size;
+        final isSmallScreen = screenSize.width < 600;
+        
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: isSmallScreen ? 16 : 24,
+            vertical: 24,
           ),
-          content: const Text(
-            'To show restaurants near you, we need access to your location. This will help us provide better recommendations.\n\nYour location is only used to find nearby places and is not shared with anyone.',
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: isSmallScreen ? screenSize.width - 32 : 400,
+              maxHeight: screenSize.height * 0.8,
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).dialogBackgroundColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with icon and title
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.my_location,
+                          color: Colors.blue,
+                          size: isSmallScreen ? 20 : 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Use Your Location?',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontSize: isSmallScreen ? 18 : 20,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  SizedBox(height: isSmallScreen ? 16 : 20),
+                  
+                  // Content text
+                  Text(
+                    'To show restaurants near you, we need access to your location. This will help us provide better recommendations.\n\nYour location is only used to find nearby places and is not shared with anyone.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontSize: isSmallScreen ? 14 : 16,
+                      height: 1.4,
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8),
+                    ),
+                  ),
+                  
+                  SizedBox(height: isSmallScreen ? 20 : 24),
+                  
+                  // Action buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 16 : 20,
+                            vertical: isSmallScreen ? 8 : 12,
+                          ),
+                        ),
+                        child: Text(
+                          'Use Hyderabad',
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 14 : 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 16 : 20,
+                            vertical: isSmallScreen ? 8 : 12,
+                          ),
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          'Allow Location',
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 14 : 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Use Hyderabad'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Allow Location'),
-            ),
-          ],
         );
       },
     ) ?? false;
@@ -202,31 +301,131 @@ class LocationService {
   static Future<void> _showLocationServicesDialog(BuildContext context) async {
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.location_off, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('Location Services Off'),
-            ],
+        final screenSize = MediaQuery.of(context).size;
+        final isSmallScreen = screenSize.width < 600;
+        
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: isSmallScreen ? 16 : 24,
+            vertical: 24,
           ),
-          content: const Text(
-            'Location services are disabled on your device. Please enable them in your device settings to use your current location.',
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: isSmallScreen ? screenSize.width - 32 : 400,
+              maxHeight: screenSize.height * 0.8,
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).dialogBackgroundColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with icon and title
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.location_off,
+                          color: Colors.orange,
+                          size: isSmallScreen ? 20 : 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Location Services Off',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontSize: isSmallScreen ? 18 : 20,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  SizedBox(height: isSmallScreen ? 16 : 20),
+                  
+                  // Content text
+                  Text(
+                    'Location services are disabled on your device. Please enable them in your device settings to use your current location.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontSize: isSmallScreen ? 14 : 16,
+                      height: 1.4,
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8),
+                    ),
+                  ),
+                  
+                  SizedBox(height: isSmallScreen ? 20 : 24),
+                  
+                  // Action buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 16 : 20,
+                            vertical: isSmallScreen ? 8 : 12,
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 14 : 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          Geolocator.openLocationSettings();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 16 : 20,
+                            vertical: isSmallScreen ? 8 : 12,
+                          ),
+                          backgroundColor: Colors.orange,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          'Open Settings',
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 14 : 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                Geolocator.openLocationSettings();
-              },
-              child: const Text('Open Settings'),
-            ),
-          ],
         );
       },
     );
@@ -236,31 +435,131 @@ class LocationService {
   static Future<void> _showLocationPermanentlyDeniedDialog(BuildContext context) async {
     await showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.location_disabled, color: Colors.red),
-              SizedBox(width: 8),
-              Text('Location Access Denied'),
-            ],
+        final screenSize = MediaQuery.of(context).size;
+        final isSmallScreen = screenSize.width < 600;
+        
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.symmetric(
+            horizontal: isSmallScreen ? 16 : 24,
+            vertical: 24,
           ),
-          content: const Text(
-            'Location access has been permanently denied. To use your current location, please enable it in your device settings under App Permissions.',
+          child: Container(
+            constraints: BoxConstraints(
+              maxWidth: isSmallScreen ? screenSize.width - 32 : 400,
+              maxHeight: screenSize.height * 0.8,
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).dialogBackgroundColor,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header with icon and title
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.location_disabled,
+                          color: Colors.red,
+                          size: isSmallScreen ? 20 : 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Location Access Denied',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontSize: isSmallScreen ? 18 : 20,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  SizedBox(height: isSmallScreen ? 16 : 20),
+                  
+                  // Content text
+                  Text(
+                    'Location access has been permanently denied. To use your current location, please enable it in your device settings under App Permissions.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontSize: isSmallScreen ? 14 : 16,
+                      height: 1.4,
+                      color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8),
+                    ),
+                  ),
+                  
+                  SizedBox(height: isSmallScreen ? 20 : 24),
+                  
+                  // Action buttons
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 16 : 20,
+                            vertical: isSmallScreen ? 8 : 12,
+                          ),
+                        ),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 14 : 16,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          Geolocator.openAppSettings();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 16 : 20,
+                            vertical: isSmallScreen ? 8 : 12,
+                          ),
+                          backgroundColor: Colors.red,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        child: Text(
+                          'Open Settings',
+                          style: TextStyle(
+                            fontSize: isSmallScreen ? 14 : 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                Geolocator.openAppSettings();
-              },
-              child: const Text('Open Settings'),
-            ),
-          ],
         );
       },
     );
