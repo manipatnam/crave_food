@@ -52,28 +52,40 @@ class LocationProvider extends ChangeNotifier {
   }
 
   // Request user's current location (when they tap "Use Current Location")
+  // Always fetches fresh GPS location, handles permissions, and shows appropriate dialogs
   Future<bool> requestCurrentLocation(context) async {
     try {
       _setLoading(true);
+      print('📍 Button pressed - requesting fresh GPS location...');
       
+      // Always get fresh GPS location - this will handle all permission checks internally
       final userLocation = await LocationService.getCurrentLocationWithPermission(context);
       
       if (userLocation != null) {
+        // Successfully got fresh GPS location
         _currentLocation = userLocation;
         _locationName = LocationService.getLocationDisplayName(userLocation);
         _isUsingUserLocation = true;
         _hasLocationPermission = true;
         
-        print('📍 User location updated: $_locationName');
+        print('✅ Fresh GPS location obtained: $_locationName');
         notifyListeners();
         return true;
       } else {
-        print('❌ Failed to get user location');
+        // Failed to get GPS location (permissions denied, services off, etc.)
+        // The LocationService already showed appropriate error dialogs
+        print('❌ Failed to get fresh GPS location');
+        
+        // Update permission status based on current state
+        _hasLocationPermission = await LocationService.canRequestLocation();
+        notifyListeners();
         return false;
       }
       
     } catch (e) {
       print('❌ Error requesting current location: $e');
+      _hasLocationPermission = await LocationService.canRequestLocation();
+      notifyListeners();
       return false;
     } finally {
       _setLoading(false);
@@ -109,5 +121,8 @@ class LocationProvider extends ChangeNotifier {
   }
 
   // Check if we can show "Use Current Location" option
-  bool get canRequestLocation => _hasLocationPermission && !_isUsingUserLocation;
+  bool get canRequestLocation => _hasLocationPermission;
+  
+  // Check if the location button should show as "active" (using live GPS)
+  bool get isLocationButtonActive => _isUsingUserLocation && _hasLocationPermission;
 }

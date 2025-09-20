@@ -520,16 +520,12 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
   void _goToCurrentLocation() async {
     final locationProvider = Provider.of<LocationProvider>(context, listen: false);
     
-    // If already using user location, just animate to it
-    if (locationProvider.isUsingUserLocation && _currentLocation != null) {
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLngZoom(_currentLocation!, 15.0),
-      );
-      _showSnackBar('Already at your location!');
-      return;
-    }
+    // Always try to get fresh GPS location when button is pressed
+    // Don't rely on cached status - check actual permissions and services
     
-    // Request user's current location
+    _showSnackBar('Getting your current location...');
+    
+    // Request fresh current location (this will handle permissions internally)
     final success = await locationProvider.requestCurrentLocation(context);
     
     if (success && _mapController != null) {
@@ -545,6 +541,7 @@ class _EnhancedSearchScreenState extends State<EnhancedSearchScreen>
       
       _showSnackBar('Location updated to your current position!');
     } else {
+      // Error is already handled by the location provider with appropriate dialogs
       _showSnackBar('Unable to get current location');
     }
   }

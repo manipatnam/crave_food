@@ -600,4 +600,24 @@ class LocationService {
     final permission = await Geolocator.checkPermission();
     return permission != LocationPermission.deniedForever;
   }
+
+  // Check current location permission status without requesting
+  static Future<LocationPermission> getCurrentPermissionStatus() async {
+    return await Geolocator.checkPermission();
+  }
+
+  // Check if location services are currently enabled
+  static Future<bool> isLocationServiceEnabled() async {
+    return await Geolocator.isLocationServiceEnabled();
+  }
+
+  // Check if we can currently access GPS (services enabled + permission granted)
+  static Future<bool> canCurrentlyAccessGPS() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    final permission = await Geolocator.checkPermission();
+    
+    return serviceEnabled && 
+           (permission == LocationPermission.always || 
+            permission == LocationPermission.whileInUse);
+  }
 }
