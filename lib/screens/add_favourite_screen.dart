@@ -470,7 +470,9 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
             backgroundColor: Theme.of(context).colorScheme.primary,
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
-                widget.prefilledPlace != null ? 'Add to Favourites' : 'Add Favourite',
+                _selectedPlace != null 
+                  ? 'Add to Favourites'
+                  : 'Search Places',
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -504,14 +506,12 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Clipboard detector (only show if not prefilled)
-                        if (widget.prefilledPlace == null)
+                        // Always show clipboard detector and search section at the top
+                        if (widget.prefilledPlace == null) ...[
                           ClipboardDetector(
                             onSocialUrlDetected: _addSocialUrlFromClipboard,
                           ),
-                        
-                        // Place search section (only show if not prefilled)
-                        if (widget.prefilledPlace == null) ...[
+                          
                           PlaceSearchSection(
                             controller: _placeController,
                             searchResults: _searchResults,
@@ -520,13 +520,15 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
                             onSearch: _searchPlaces,
                             onSelectPlace: _selectPlace,
                           ),
-                          const SizedBox(height: 24),
                         ],
                         
-                        // Selected place card (always show if we have a selected place)
+                        // Show all other sections ONLY after a place is selected (like in Add Review)
                         if (_selectedPlace != null) ...[
+                          const SizedBox(height: 24),
+                          
+                          // Selected place card
                           SelectedPlaceCard(
-                            selectedPlace: _selectedPlace!, // Fixed: use selectedPlace parameter name
+                            selectedPlace: _selectedPlace!,
                             onClear: () {
                               setState(() {
                                 _selectedPlace = null;
@@ -536,117 +538,122 @@ class _AddFavouriteScreenState extends State<AddFavouriteScreen>
                               });
                             },
                           ),
+                          
                           const SizedBox(height: 24),
-                        ],
-                        
-                        // Place Category Selection (show after place is selected)
-                        if (_selectedPlace != null) ...[
+                          
+                          // Place Category Selection
                           PlaceCategorySection(
                             selectedCategory: _selectedCategory,
                             onCategorySelected: _selectCategory,
                           ),
+                          
                           const SizedBox(height: 24),
-                        ],
-                        
-                        // Food Place Type Selection (show if Food & Dining is selected)
-                        if (_selectedCategory == PlaceCategory.foodDining) ...[
-                          FoodPlaceTypeSection(
-                            selectedType: _selectedFoodPlaceType,
-                            onTypeSelected: _selectFoodPlaceType,
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-                        
-                        // Food Items Section (only for food & dining places)
-                        if (_shouldShowFoodSections && _selectedFoodPlaceType != null) ...[
-                          FoodItemsSection(
-                            controller: _foodController,
-                            foodItems: _foodItems,
-                            onAddItem: _addFoodItem,
-                            onRemoveItem: _removeFoodItem,
-                            // Note: removed isOptional and placeholderText - using existing widget signature
-                          ),
-                          const SizedBox(height: 24),
-                        ],
-                        
-                        // Dietary Options Section (only for food & dining places)
-                        if (_shouldShowFoodSections && _selectedFoodPlaceType != null) ...[
-                          DietaryOptionsSection(
-                            isVegetarianAvailable: _isVegetarianAvailable,
-                            isNonVegetarianAvailable: _isNonVegetarianAvailable,
-                            onVegetarianChanged: (value) {
+                          
+                          // Food Place Type Selection (show if Food & Dining is selected)
+                          if (_selectedCategory == PlaceCategory.foodDining) ...[
+                            FoodPlaceTypeSection(
+                              selectedType: _selectedFoodPlaceType,
+                              onTypeSelected: _selectFoodPlaceType,
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+                          
+                          // Food Items Section (only for food & dining places)
+                          if (_shouldShowFoodSections && _selectedFoodPlaceType != null) ...[
+                            FoodItemsSection(
+                              controller: _foodController,
+                              foodItems: _foodItems,
+                              onAddItem: _addFoodItem,
+                              onRemoveItem: _removeFoodItem,
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+                          
+                          // Dietary Options Section (only for food & dining places)
+                          if (_shouldShowFoodSections && _selectedFoodPlaceType != null) ...[
+                            DietaryOptionsSection(
+                              isVegetarianAvailable: _isVegetarianAvailable,
+                              isNonVegetarianAvailable: _isNonVegetarianAvailable,
+                              onVegetarianChanged: (value) {
+                                setState(() {
+                                  _isVegetarianAvailable = value ?? false;
+                                });
+                              },
+                              onNonVegetarianChanged: (value) {
+                                setState(() {
+                                  _isNonVegetarianAvailable = value ?? false;
+                                });
+                              },
+                            ),
+                            const SizedBox(height: 24),
+                          ],
+                          
+                          // Timing Information Section
+                          TimingInformationSection(
+                            selectedPlace: _selectedPlace!,
+                            userOpeningTime: _userOpeningTime,
+                            userClosingTime: _userClosingTime,
+                            timingNotesController: _timingNotesController,
+                            onOpeningTimeChanged: (time) {
                               setState(() {
-                                _isVegetarianAvailable = value ?? false; // Fixed: handle nullable bool
+                                _userOpeningTime = time;
                               });
                             },
-                            onNonVegetarianChanged: (value) {
+                            onClosingTimeChanged: (time) {
                               setState(() {
-                                _isNonVegetarianAvailable = value ?? false; // Fixed: handle nullable bool
+                                _userClosingTime = time;
                               });
                             },
                           ),
+                          
                           const SizedBox(height: 24),
+                          
+                          // Tags Section
+                          TagsSection(
+                            controller: _tagController,
+                            tags: _tags,
+                            onAddTag: _addTag,
+                            onRemoveTag: _removeTag,
+                          ),
+                          
+                          const SizedBox(height: 24),
+                          
+                          // Visit Status Section
+                          _buildVisitStatusSection(),
+                          
+                          // Social URLs Section
+                          SocialUrlsSection(
+                            controller: _socialController,
+                            socialUrls: _socialUrls,
+                            onAddUrl: _addSocialUrl,
+                            onRemoveUrl: _removeSocialUrl,
+                            onClipboardCheck: () async {
+                              final socialUrl = await ClipboardService.getSocialMediaLinkFromClipboard();
+                              if (socialUrl != null) {
+                                _addSocialUrlFromClipboard(socialUrl);
+                              } else {
+                                _showSnackBar('No social media links found in clipboard', isError: true);
+                              }
+                            },
+                          ),
+                          
+                          const SizedBox(height: 24),
+                          
+                          // Notes Section
+                          NotesSection(
+                            controller: _notesController,
+                          ),
+                          
+                          const SizedBox(height: 32),
+                          
+                          // Save Button
+                          SaveButton(
+                            isAdding: _isAdding,
+                            onSave: _saveFavourite,
+                          ),
+                          
+                          const SizedBox(height: 20),
                         ],
-                        
-                        // Always show these sections for all place types
-                        TimingInformationSection(
-                          selectedPlace: _selectedPlace, // Fixed: add required selectedPlace parameter
-                          userOpeningTime: _userOpeningTime,
-                          userClosingTime: _userClosingTime,
-                          timingNotesController: _timingNotesController,
-                          onOpeningTimeChanged: (time) {
-                            setState(() {
-                              _userOpeningTime = time;
-                            });
-                          },
-                          onClosingTimeChanged: (time) {
-                            setState(() {
-                              _userClosingTime = time;
-                            });
-                          },
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        TagsSection(
-                          controller: _tagController,
-                          tags: _tags,
-                          onAddTag: _addTag,
-                          onRemoveTag: _removeTag,
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        _buildVisitStatusSection(),
-                        SocialUrlsSection(
-                          controller: _socialController,
-                          socialUrls: _socialUrls,
-                          onAddUrl: _addSocialUrl,
-                          onRemoveUrl: _removeSocialUrl,
-                          onClipboardCheck: () async {
-                            final socialUrl = await ClipboardService.getSocialMediaLinkFromClipboard();
-                            if (socialUrl != null) {
-                              _addSocialUrlFromClipboard(socialUrl);
-                            } else {
-                              _showSnackBar('No social media links found in clipboard', isError: true);
-                            }
-                          },
-                        ),
-                        
-                        const SizedBox(height: 24),
-                        
-                        NotesSection(
-                          controller: _notesController,
-                        ),
-                        
-                        const SizedBox(height: 32),
-                        
-                        SaveButton(
-                          isAdding: _isAdding,
-                          onSave: _saveFavourite,
-                          // Note: removed canSave parameter - using existing widget signature
-                        ),
-                        
-                        const SizedBox(height: 20),
                       ],
                     ),
                   ),
