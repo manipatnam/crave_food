@@ -223,52 +223,117 @@ class DishReviewsSection extends StatelessWidget {
           
           const SizedBox(height: 16),
           
-          // Rating Row
-          Row(
+          // Rating Section
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Rating:',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(width: 12),
-              
-              // Star Display
+              // Rating Label
               Row(
-                children: List.generate(5, (starIndex) {
-                  return GestureDetector(
-                    onTap: () => _updateDish(
-                      index,
-                      dish.copyWith(rating: starIndex + 1.0),
+                children: [
+                  Text(
+                    'Rating:',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black87,
                     ),
-                    child: Icon(
-                      starIndex < dish.rating ? Icons.star : Icons.star_border,
-                      color: Colors.amber,
-                      size: 22,
-                    ),
-                  );
-                }),
-              ),
-              
-              const SizedBox(width: 8),
-              
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.amber[50],
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  dish.rating.toStringAsFixed(1),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.amber[800],
                   ),
-                ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.amber[50],
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      dish.rating.toStringAsFixed(1),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.amber[800],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
+              // Stars and Slider Row
+              Row(
+                children: [
+                  // Star Display with Half-Star Support
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(5, (starIndex) {
+                      final isFullStar = starIndex + 1 <= dish.rating;
+                      final isHalfStar = starIndex + 0.5 <= dish.rating && starIndex + 1 > dish.rating;
+
+                      return Stack(
+                        children: [
+                          Icon(
+                            Icons.star_border,
+                            color: Colors.amber,
+                            size: 20,
+                          ),
+                          if (isFullStar)
+                            Icon(
+                              Icons.star,
+                              color: Colors.amber,
+                              size: 20,
+                            )
+                          else if (isHalfStar)
+                            ClipRect(
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                widthFactor: 0.5,
+                                child: Icon(
+                                  Icons.star,
+                                  color: Colors.amber,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    }),
+                  ),
+
+                  const SizedBox(width: 12),
+
+                  // Rating Slider
+                  Expanded(
+                    child: SliderTheme(
+                      data: SliderThemeData(
+                        trackHeight: 4,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                        overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                        activeTrackColor: Colors.deepOrange,
+                        inactiveTrackColor: Colors.deepOrange.withOpacity(0.3),
+                        thumbColor: Colors.deepOrange,
+                        overlayColor: Colors.deepOrange.withOpacity(0.2),
+                        valueIndicatorColor: Colors.deepOrange,
+                        valueIndicatorTextStyle: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        showValueIndicator: ShowValueIndicator.onlyForDiscrete,
+                      ),
+                      child: Slider(
+                        value: dish.rating,
+                        min: 1.0,
+                        max: 5.0,
+                        divisions: 8, // Allows half-star ratings (1.0, 1.5, 2.0, etc.)
+                        onChanged: (value) => _updateDish(
+                          index,
+                          dish.copyWith(rating: value),
+                        ),
+                        label: dish.rating.toStringAsFixed(1),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
